@@ -1,0 +1,26 @@
+Package: CausalMultiOmics
+Title: Validation and Preprocessing Planning for Multi-Block Omics Data
+Version: 0.0.0.9000
+Authors@R:
+    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
+Description: Tools for auditing multi-block datasets before integration.
+    Data blocks of any modality (omics, imaging, clinical, environmental)
+    are collected into a single container, screened for structural and
+    distributional problems, and profiled block by block. A battery of
+    candidate transformations is benchmarked for each block and an
+    automatic preprocessing recipe is derived from the result, together
+    with a quality score, quality-control checks, diagnostic plots and a
+    self-contained HTML report.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 8.0.0
+Imports:
+    grDevices,
+    graphics,
+    stats,
+    utils
+Suggests:
+    survival,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
