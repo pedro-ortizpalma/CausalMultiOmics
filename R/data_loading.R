@@ -51,10 +51,25 @@
 #' on automatic row names is rejected rather than silently labelled by
 #' position.
 #'
+#' Blocks may optionally declare their assay \code{modality}. The statistical
+#' type of a block can be detected from the numbers, but the modality cannot:
+#' RNA-seq counts and any other counts look identical, and yet they call for
+#' different normalization families. Declaring it lets \code{check_data()}
+#' recommend modality-appropriate methods; leaving it out simply falls back
+#' to type-driven defaults.
+#'
 #' @param assays Named list of matrices or data frames, each with sample
 #'   identifiers as row names.
 #' @param metadata Optional sample metadata. A \code{sample_id} column is
 #'   used to match rows against the identifiers found in \code{assays}.
+#' @param modality Optional named character vector declaring the assay
+#'   modality of each block, for example
+#'   \code{c(rna = "rnaseq", prot = "proteomics")}. Names must match names in
+#'   \code{assays}; blocks left out are recorded as \code{"unknown"}.
+#'   Recognised values are \code{"rnaseq"}, \code{"proteomics"},
+#'   \code{"metabolomics"}, \code{"microbiome"}, \code{"methylation"},
+#'   \code{"clinical"}, \code{"imaging"} and \code{"other"}. Any other string
+#'   is stored but behaves like \code{"unknown"}.
 #'
 #' @return
 #' A MultiOmicsData object.
@@ -83,7 +98,8 @@
 
 load_data <- function(
     assays,
-    metadata = NULL){
+    metadata = NULL,
+    modality = NULL){
 
   # ===========================================================================
   # Validate input
@@ -316,12 +332,50 @@ load_data <- function(
   )
 
   # ===========================================================================
+  # Modality
+  # ===========================================================================
+
+  block_modality <- stats::setNames(
+    rep("unknown", length(assays)),
+    names(assays)
+  )
+
+  if(!is.null(modality)){
+
+    if(!(is.character(modality) || is.list(modality)))
+      stop("'modality' must be a named character vector.")
+
+    modality <- unlist(modality)
+
+    if(is.null(names(modality)) || any(names(modality) == ""))
+      stop("'modality' must be named after the blocks it describes.")
+
+    unknown_blocks <- setdiff(names(modality), names(assays))
+
+    if(length(unknown_blocks) > 0){
+
+      stop(
+        sprintf(
+          "'modality' names blocks that are not in 'assays': %s.",
+          paste(unknown_blocks, collapse = ", ")
+        )
+      )
+
+    }
+
+    block_modality[names(modality)] <- as.character(modality)
+
+  }
+
+  # ===========================================================================
   # Build object
   # ===========================================================================
 
   object <- MultiOmicsData()
 
   object$assays <- assays
+
+  object$modality <- block_modality
 
   object$metadata <- metadata
 

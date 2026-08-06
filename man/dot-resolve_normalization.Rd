@@ -4,7 +4,12 @@
 \alias{.resolve_normalization}
 \title{Resolve the normalization stage against the chosen transformation}
 \usage{
-.resolve_normalization(data_type, features, transformation)
+.resolve_normalization(
+  data_type,
+  features,
+  transformation,
+  modality = "unknown"
+)
 }
 \description{
 Rank-based transformations already impose a common distribution on every

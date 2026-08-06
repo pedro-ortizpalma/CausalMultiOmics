@@ -4,7 +4,13 @@
 \alias{.build_recipe}
 \title{Build an automatic PreprocessingRecipe for one block}
 \usage{
-.build_recipe(block_name, diagnostic, transformation, metadata = NULL)
+.build_recipe(
+  block_name,
+  diagnostic,
+  transformation,
+  metadata = NULL,
+  modality = "unknown"
+)
 }
 \description{
 Build an automatic PreprocessingRecipe for one block

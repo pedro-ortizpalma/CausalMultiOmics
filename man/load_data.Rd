@@ -4,7 +4,7 @@
 \alias{load_data}
 \title{Load Multi-Block Data}
 \usage{
-load_data(assays, metadata = NULL)
+load_data(assays, metadata = NULL, modality = NULL)
 }
 \arguments{
 \item{assays}{Named list of matrices or data frames, each with sample
@@ -12,6 +12,15 @@ identifiers as row names.}
 
 \item{metadata}{Optional sample metadata. A \code{sample_id} column is
 used to match rows against the identifiers found in \code{assays}.}
+
+\item{modality}{Optional named character vector declaring the assay
+modality of each block, for example
+\code{c(rna = "rnaseq", prot = "proteomics")}. Names must match names in
+\code{assays}; blocks left out are recorded as \code{"unknown"}.
+Recognised values are \code{"rnaseq"}, \code{"proteomics"},
+\code{"metabolomics"}, \code{"microbiome"}, \code{"methylation"},
+\code{"clinical"}, \code{"imaging"} and \code{"other"}. Any other string
+is stored but behaves like \code{"unknown"}.}
 }
 \value{
 A MultiOmicsData object.
@@ -33,6 +42,13 @@ Every block must carry sample identifiers in its row names. They are what
 links blocks to each other and to \code{metadata}, so a block that relies
 on automatic row names is rejected rather than silently labelled by
 position.
+
+Blocks may optionally declare their assay \code{modality}. The statistical
+type of a block can be detected from the numbers, but the modality cannot:
+RNA-seq counts and any other counts look identical, and yet they call for
+different normalization families. Declaring it lets \code{check_data()}
+recommend modality-appropriate methods; leaving it out simply falls back
+to type-driven defaults.
 }
 \examples{
 tr <- data.frame(

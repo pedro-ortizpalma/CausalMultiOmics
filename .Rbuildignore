@@ -5,3 +5,5 @@
 ^test_global\.R$
 ^tests/manual$
 ^\.claude$
+^dev$
+^docs$

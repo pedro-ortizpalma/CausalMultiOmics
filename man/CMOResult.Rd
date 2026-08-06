@@ -10,10 +10,14 @@ CMOResult()
 A CMOResult object.
 }
 \description{
-Top-level container for a complete CausalMultiOmics analysis. Each
-analysis stage fills its own slot, so a partially finished workflow is
-represented by the stages that are still empty rather than by a missing
-element. \code{print()} and \code{summary()} report a stage as completed
-exactly when its slot has non-zero length.
+Top-level container for a complete CausalMultiOmics analysis. The result
+of \code{analyze()} is not a model but a body of evidence: every method
+that ran contributes edges, the integrator merges and scores them, and the
+graph plus its interpretation is what the user reads.
+}
+\details{
+Each slot is filled by the stage that produces it, so a partially finished
+analysis is represented by the slots that are still empty rather than by a
+missing element.
 }
 \keyword{internal}

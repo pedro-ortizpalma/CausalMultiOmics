@@ -1,4 +1,263 @@
-# CausalMultiOmics 0.0.0.9000
+# CausalMultiOmics 0.1.0
+
+## Would this report repeat?
+
+* `result$consensus` is a `ConsensusGraph`: what the graph looks like across
+  resamples rather than in the one sample that happened to be collected.
+  Per-edge stability answers "would this relationship come back?" one
+  relationship at a time; it cannot answer "would this picture come back?".
+  A graph whose edges are each recovered six times in ten is a stable
+  structure if it is the same six edges every time and no structure at all
+  if it is a different six, and a single drawing cannot tell those apart.
+* Both disagreements with the report are surfaced. Relationships that were
+  reported but rarely recur are the weakest thing in the document.
+  Relationships that recur constantly but did not clear the threshold in the
+  collected sample are the ones a reader cannot discover any other way.
+* Recurrence is not recovery. A relationship appearing in nine resamples out
+  of ten pointing a different way each time has been found nine times and
+  established nothing, so consensus membership needs a consistent sign as
+  well as a reappearance.
+* Rank is tracked, not just presence: how often each headline finding kept
+  its place, and the best and worst position it reached. Being third instead
+  of second is not instability; falling out of the top ten is.
+* Replicate graph sizes are kept rather than averaged. A graph that is 12
+  edges in one resample and 40 in the next is not a graph, and a median
+  hides exactly that.
+* The caveat travels with the object and is printed with it. A bootstrap
+  resamples the people who were measured, so it says how much the picture
+  depends on which of them ended up in the study, and nothing about whether
+  a relationship is real. A chance correlation in this sample recurs in
+  almost every resample of it and looks perfectly stable. Null calibration,
+  at `effort = "thorough"`, is what addresses that.
+* Costs no additional model fits. The replicate graphs were already being
+  built and discarded.
+* A new figure draws each relationship as a line from its best to its worst
+  rank with a dot at the median, fading as sign consistency falls. A short
+  line on the left would have been reported whoever was sampled.
+
+## Measured values and filled-in values
+
+* Every relationship reports `data_quality`: the share of the data behind it
+  that was measured rather than reconstructed. Imputation fills gaps with
+  plausible numbers and from that point nothing downstream can tell a
+  measurement from an estimate, so a variable that arrived a quarter empty
+  reported exactly the same precision as one fully observed.
+* `data_quality` scales `evidence_score` rather than entering `confidence`.
+  Folding it into confidence would leave a reader unable to tell a wide
+  interval from a column that was largely invented, and those have different
+  remedies: the first is fixed by more samples and the second by nothing.
+* Only imputed values count against it. Rows dropped for being incomplete
+  cost sample size, which `confidence` already carries through *n*, and
+  charging for them twice would double-count. On a dataset with nothing
+  imputed every quality is 1 and no score moves.
+* Imputation methods are not treated alike. Filling with the column mean
+  collapses every gap onto one number and pulls associations toward the null;
+  nearest-neighbour imputation borrows from correlated features and keeps
+  most of the structure.
+* `quality_flags` says it in words — which variable, how much of it, and by
+  what method — because "38% of this was filled in with the column median" is
+  something a reader can act on and 0.62 is not.
+* An edge is worth no more than its worst-measured ingredient, endpoints and
+  covariates alike, and `quality_limited_by` names it. Averaging would let a
+  clean outcome and four clean covariates hide an exposure that was
+  two-thirds reconstructed.
+* Relationships are re-sorted after the discount, so the ranking cannot
+  disagree with the scores printed beside it.
+
+## Findings that exist only because the gaps were filled
+
+* From `effort = "standard"`, the strongest relationships with the outcome
+  are refitted using only the rows where the variable was actually measured,
+  and `complete_case_estimate` is reported against the pooled one. A
+  relationship that reverses direction without the filled-in rows was
+  produced by the filling.
+* One model fit per relationship, not a full analysis per replicate.
+  Multiple imputation with Rubin's rules is the thorough version and costs
+  *m* times the whole run; this catches the case that matters at a fixed
+  cost.
+
+## What each method actually measured
+
+* Every observation records the quantity it estimated — a regression
+  coefficient, a log odds ratio, a partial correlation, a permutation
+  importance — and quantities are only pooled with others of the same family.
+  Averaging a log hazard ratio with a correlation coefficient produced a
+  headline number in no units at all, and it was the number the report led
+  with.
+* Quantities that are not effect estimates never enter the pooled estimate.
+  A random forest importance is evidence that a variable matters and no
+  evidence about how much or in which direction, so it now supports the edge
+  without moving its magnitude.
+* `pooled_from` and `not_pooled` say how many observations went into the
+  headline estimate and which were left out for measuring something else.
+  Both are shown in `explain()` and in the report.
+
+## What the estimate would have to assume
+
+* `analyze(..., dag = )` accepts a causal diagram — a `dagitty` object, a
+  specification string, or a `data.frame` of `from`/`to` — and audits every
+  relationship against it. Each edge gains `identifiable`,
+  `identification_reason`, `required_adjustment` and `adjustment_problems`.
+* `check_dag()` answers the same question before any model is fitted: given
+  this structure, does adjusting for these variables identify this effect?
+* An adjustment that includes a mediator, a collider, or anything the outcome
+  causes downgrades the edge's `identification` to `"none"`. Both adjustments
+  look like diligence and both make the estimate worse than leaving the
+  variable alone; letting the edge keep its label would present the more
+  misleading number as the more careful one. So does an adjustment that
+  simply fails to close the backdoor paths.
+* The diagram never touches an estimate. It is a claim about how the world
+  works, not something recoverable from a correlation matrix, and it changes
+  only what may be concluded. Without one, nothing is asserted either way and
+  the report says why.
+
+## Reading a result
+
+* `explain()` gathers everything the engine knows about one variable into a
+  single account: which methods supported it and at what level, its stability
+  under resampling, what a confounder would have to look like to explain it
+  away, the chains it sits on, and what each method reported on its own
+  before anything was merged.
+* `counterfactual()` expresses findings in the units the variable was
+  measured in, by pushing the original value back through the stored
+  preprocessing models. Nothing is included unless the user names it as
+  something that could plausibly be acted on: a contrast for a genotype is
+  arithmetic without meaning. The verb follows the identification label, so
+  an adjusted association reads "is associated with" however high it scores.
+* Every `EvidenceEdge` carries `contributions`, one row per contributing
+  method with its own estimate, interval, p-value and sample size. A summary
+  the reader cannot open is one they have to take on trust.
+* The report explains where every number comes from, describes each method in
+  plain language including what it cannot tell you, and shows the individual
+  results behind each finding.
+
+## Evidence hierarchy
+
+* Methods carry an epistemic level from predictive to identified, and
+  agreement between them is weighted by it. Five predictive methods
+  concurring is weaker evidence than one longitudinal model plus one
+  mediation analysis, and an unweighted vote said the opposite.
+* Every relationship reports an E-value: how strong an unmeasured confounder
+  would have to be, on both variables, to explain it away entirely.
+* `direction_confidence` records how one-sided a disagreement about
+  orientation was, since observational data rarely settles direction.
+* Temporality is derived from the design rather than from the level. A
+  mediation model assumes an ordering; it does not observe one.
+
+## Cost control
+
+* `effort` selects how much computation to spend, from `"fast"` to
+  `"exhaustive"`, with every component separately overridable. Resampling and
+  permutation are the only expensive parts, and both scale linearly.
+* Bootstrap and cross-validation resampling report how often each
+  relationship survived and how often it could have been seen at all.
+* Null calibration runs the engine with the outcome shuffled, so a reader can
+  tell whether twenty-five relationships is more than chance produces.
+* Automatic model diagnostics, subgroup heterogeneity, negative controls and
+  leave-one-block-out robustness.
+
+## Blocks
+
+* The screening budget is shared between blocks with a floor rather than
+  ranked globally. A block of twenty thousand transcripts used to take every
+  slot, and a five-variable clinical block disappeared from the analysis
+  entirely, taking every cross-block mediation with it.
+* Evidence between layers, block importance, per-kind scores, community
+  composition and a block-level graph, in `result$network$blocks`.
+* `cross_block` is reported beside the score and never inside it. Crossing
+  layers makes a relationship more interesting, not better supported.
+
+## Categorical variables
+
+* Factors reach the analysis instead of being dropped at alignment. A
+  variable with *k* categories becomes *k*-1 comparisons against its
+  commonest level, and the reference travels with the column so the estimate
+  can be read.
+* Identifier-like columns and categories with too few observations are left
+  out with a stated reason rather than silently.
+* An unordered outcome with more than two categories is refused. Coding it
+  1, 2, 3 would let every model run and assert that the third category is
+  three times the first.
+* `.duplicated_samples()` no longer mistakes a low-cardinality block for
+  repeated specimens. A single genotype column taking three values made
+  almost every row a duplicate of another, and preprocessing removed all but
+  three samples.
+
+## Figures
+
+* Two circos plots: one with every variable as a tick inside its block, one
+  summarising whole layers. Drawn in base graphics, so they cost no new
+  dependency.
+
+
+## Analysis engine
+
+* `analyze()` builds evidence rather than fitting a model. Nine generators
+  run against a `PreprocessingResult` — adjusted association, conditional
+  independence, Cox, linear mixed models, bootstrap mediation, elastic net,
+  random forest, Bayesian network structure learning and SEM — and each
+  emits `EvidenceEdge` objects that an integrator merges into one scored
+  directed graph.
+* Every edge carries `identification` and `assumptions`: the strategy that
+  would license reading it causally, and what would have to be true. An edge
+  identified as `"none"` or `"adjustment"` is an association however high it
+  scores, and says so when printed.
+* Three scores are reported and kept apart on purpose. Strength is effect
+  magnitude, confidence is estimation precision, consistency is how many
+  methods agreed on the direction. Consistency is not validity: methods
+  sharing an unmeasured confounder agree while all being biased, so it never
+  feeds a causal claim.
+* Reciprocal edges are resolved into a single direction. Keeping both put a
+  two-cycle in the graph, which generated paths that read as mechanisms but
+  were artefacts.
+* `EvidenceGraph` carries communities (Louvain), centrality, and the ranked
+  paths reaching the outcome, scored by their weakest link.
+* The design is detected from `subject` and `time` and decides which
+  generators apply: repeated measures unlock mixed models, a time/status
+  pair unlocks survival, a single cross-section unlocks neither.
+* Features are screened against the outcome before the pairwise stage, and
+  the number never examined is reported as a limitation rather than hidden.
+* `annotate_evidence()` attaches biological support from a local export.
+  Kept out of `analyze()` so the analysis stays offline, deterministic and
+  independent of a database version that the result cannot record.
+* The generated report always states its limitations, including how many
+  relationships rest on temporal precedence and how many samples the
+  cross-block intersection cost.
+
+## Preprocessing engine
+
+* `preprocess()` executes the `PreprocessingRecipe` objects produced by
+  `check_data()`. It derives nothing of its own: every method, parameter and
+  threshold comes from the recipe, and the stage order comes from the
+  recipe's `stage_order`.
+* `apply_preprocessing()` replays a fitted pipeline on an external cohort
+  using the stored models. Feature decisions are replayed so the columns
+  match; sample decisions are not, because dropping rows from a validation
+  set manufactures optimistic results.
+* Every stage is a fit/apply pair and stores its fitted model, so the
+  pipeline is reproducible by construction. A method that cannot express its
+  decision as a transferable model is refused with an explanation rather
+  than silently re-fitted (`mice`, `missForest`).
+* `PreprocessingResult$steps` is the ordered record of what ran: stage,
+  method, parameters, fitted model, dimensions before and after, what was
+  removed and how long it took. The other slots are views over it.
+* Methods live in a registry, so extending the engine means adding an entry.
+  Currently implemented in base R, with no new hard dependencies:
+  imputation (mean, median, mode, pseudocount, knn), the fifteen benchmark
+  transformations plus arcsin, normalization (total sum, TIC, CPM, median,
+  RLE, PQN, TMM, quantile), scaling (autoscaling, pareto, vast, range,
+  robust) and feature selection (variance, correlation).
+
+## Modality
+
+* `load_data()` accepts a `modality` argument recording what each block
+  actually is. The statistical type cannot recover it — RNA-seq counts and
+  any other counts are identical as numbers — and it is what lets
+  `check_data()` recommend modality-appropriate normalization.
+* Modality never overrides a statistical constraint: size-factor methods are
+  dropped when the block is not non-negative, and any magnitude-based
+  normalization is dropped when the chosen transformation already discarded
+  the magnitude scale.
 
 ## Correctness
 
@@ -30,8 +289,36 @@
 * `MultiOmicsData$history` is the character log the class declares. The
   structured record of the call moved to `misc$load_data`.
 
+## The samples every block has in common
+
+* `check_data()` reports `shared_by_all` and `cumulative_overlap` alongside
+  the pairwise matrix. The matrix cannot express the number an analysis
+  actually runs on: every pair of twenty blocks can share the whole cohort
+  while the twenty together share none of it, because each block can be
+  missing a different part. A user reading the matrix has no way to see that
+  coming, and it is what stops the analysis.
+* A warning fires when the two figures disagree materially, and an error
+  when nothing survives the intersection. Blame is only assigned to a
+  specific block when one block genuinely stands out; naming the top three
+  when every block costs the same invents a culprit.
+* The `analyze()` error now names which block to drop and what dropping it
+  would leave, instead of reporting a count of zero and stopping.
+* Blocks sharing no identifier at all with the largest one are diagnosed as
+  a naming difference rather than a different cohort, with example
+  identifiers from both sides. That is the common case and the one where a
+  bare "0 samples shared" sends the reader to check data that is fine.
+* When the raw blocks overlapped and the preprocessed ones do not,
+  preprocessing is named as the cause and the identifiers are explicitly
+  cleared. The pairwise matrix is computed before preprocessing and the
+  alignment happens after it, so a healthy report followed by a failed
+  analysis was previously unexplainable.
+
 ## Robustness
 
+* `analyze()` says so when figures were requested and none could be drawn.
+  The whole plot stage sits behind one guard that returns an empty list on
+  failure, so a single broken figure silently produced a report with no
+  pictures at all and nothing anywhere explaining why.
 * Quality-control checks tolerate an unpopulated `CMOValidation` instead of
   failing with "missing value where TRUE/FALSE needed".
 * Per-block plots stay aligned with their labels when `check_data()` skips a

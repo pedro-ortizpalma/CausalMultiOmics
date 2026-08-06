@@ -7,6 +7,9 @@
 # Internal formatting helpers
 # =============================================================================
 
+#' Format value as character or None placeholder
+#'
+#' @noRd
 fmt_char <- function(x) {
 
   if (is.null(x) || length(x) == 0 || all(is.na(x)))
@@ -16,6 +19,9 @@ fmt_char <- function(x) {
 
 }
 
+#' Format number with rounding or NA placeholder
+#'
+#' @noRd
 fmt_num <- function(x, digits = 2) {
 
   if (is.null(x) || length(x) == 0 || all(is.na(x)))
@@ -33,6 +39,16 @@ fmt_num <- function(x, digits = 2) {
 # print()
 # -----------------------------------------------------------------------------
 
+#' Print a compact overview of a MultiOmicsData object
+#'
+#' Shows the few numbers that describe the object at a glance. Use
+#' \code{summary()} for the full contents.
+#'
+#' @param x A \code{MultiOmicsData} object.
+#' @param ... Ignored.
+#'
+#' @return The object, invisibly.
+#'
 #' @export
 
 print.MultiOmicsData <- function(x, ...) {
@@ -92,6 +108,16 @@ print.MultiOmicsData <- function(x, ...) {
 # summary()
 # -----------------------------------------------------------------------------
 
+#' Print everything stored in a MultiOmicsData object
+#'
+#' Walks through every section the object carries. Use
+#' \code{print()} for a one-screen overview instead.
+#'
+#' @param object A \code{MultiOmicsData} object.
+#' @param ... Ignored.
+#'
+#' @return The object, invisibly.
+#'
 #' @export
 
 summary.MultiOmicsData <- function(object,...){
@@ -189,6 +215,16 @@ summary.MultiOmicsData <- function(object,...){
 # print()
 # -----------------------------------------------------------------------------
 
+#' Print a compact overview of a BlockDiagnostics object
+#'
+#' Shows the few numbers that describe the object at a glance. Use
+#' \code{summary()} for the full contents.
+#'
+#' @param x A \code{BlockDiagnostics} object.
+#' @param ... Ignored.
+#'
+#' @return The object, invisibly.
+#'
 #' @export
 
 print.BlockDiagnostics <- function(x, ...) {
@@ -250,6 +286,16 @@ print.BlockDiagnostics <- function(x, ...) {
 # summary()
 # -----------------------------------------------------------------------------
 
+#' Print everything stored in a BlockDiagnostics object
+#'
+#' Walks through every section the object carries. Use
+#' \code{print()} for a one-screen overview instead.
+#'
+#' @param object A \code{BlockDiagnostics} object.
+#' @param ... Ignored.
+#'
+#' @return The object, invisibly.
+#'
 #' @export
 
 summary.BlockDiagnostics <- function(object, ...) {
@@ -364,6 +410,16 @@ summary.BlockDiagnostics <- function(object, ...) {
 # print()
 # -----------------------------------------------------------------------------
 
+#' Print a compact overview of a TransformationRecommendation object
+#'
+#' Shows the few numbers that describe the object at a glance. Use
+#' \code{summary()} for the full contents.
+#'
+#' @param x A \code{TransformationRecommendation} object.
+#' @param ... Ignored.
+#'
+#' @return The object, invisibly.
+#'
 #' @export
 
 print.TransformationRecommendation <- function(x, ...) {
@@ -406,6 +462,16 @@ print.TransformationRecommendation <- function(x, ...) {
 # summary()
 # -----------------------------------------------------------------------------
 
+#' Print everything stored in a TransformationRecommendation object
+#'
+#' Walks through every section the object carries. Use
+#' \code{print()} for a one-screen overview instead.
+#'
+#' @param object A \code{TransformationRecommendation} object.
+#' @param ... Ignored.
+#'
+#' @return The object, invisibly.
+#'
 #' @export
 
 summary.TransformationRecommendation <- function(object, ...) {
@@ -494,6 +560,16 @@ summary.TransformationRecommendation <- function(object, ...) {
 # print()
 # -----------------------------------------------------------------------------
 
+#' Print a compact overview of a PreprocessingRecipe object
+#'
+#' Shows the few numbers that describe the object at a glance. Use
+#' \code{summary()} for the full contents.
+#'
+#' @param x A \code{PreprocessingRecipe} object.
+#' @param ... Ignored.
+#'
+#' @return The object, invisibly.
+#'
 #' @export
 
 print.PreprocessingRecipe <- function(x, ...) {
@@ -543,6 +619,16 @@ print.PreprocessingRecipe <- function(x, ...) {
 # summary()
 # -----------------------------------------------------------------------------
 
+#' Print everything stored in a PreprocessingRecipe object
+#'
+#' Walks through every section the object carries. Use
+#' \code{print()} for a one-screen overview instead.
+#'
+#' @param object A \code{PreprocessingRecipe} object.
+#' @param ... Ignored.
+#'
+#' @return The object, invisibly.
+#'
 #' @export
 
 summary.PreprocessingRecipe <- function(object, ...) {
@@ -694,6 +780,16 @@ summary.PreprocessingRecipe <- function(object, ...) {
 # print()
 # -----------------------------------------------------------------------------
 
+#' Print a compact overview of a PreprocessingResult object
+#'
+#' Shows the few numbers that describe the object at a glance. Use
+#' \code{summary()} for the full contents.
+#'
+#' @param x A \code{PreprocessingResult} object.
+#' @param ... Ignored.
+#'
+#' @return The object, invisibly.
+#'
 #' @export
 
 print.PreprocessingResult <- function(x, ...) {
@@ -713,6 +809,10 @@ print.PreprocessingResult <- function(x, ...) {
               length(x$recipes)))
 
   cat(sprintf("%-30s %d\n",
+              "Steps executed:",
+              length(x$steps)))
+
+  cat(sprintf("%-30s %d\n",
               "Removed samples:",
               sum(lengths(x$removed_samples))))
 
@@ -724,6 +824,11 @@ print.PreprocessingResult <- function(x, ...) {
               "Plots:",
               length(Filter(Negate(is.null),x$plots))))
 
+  if(!is.null(x$execution$runtime))
+    cat(sprintf("%-30s %.2f s\n",
+                "Runtime:",
+                x$execution$runtime))
+
   invisible(x)
 
 }
@@ -733,6 +838,16 @@ print.PreprocessingResult <- function(x, ...) {
 # summary()
 # -----------------------------------------------------------------------------
 
+#' Print everything stored in a PreprocessingResult object
+#'
+#' Walks through every section the object carries. Use
+#' \code{print()} for a one-screen overview instead.
+#'
+#' @param object A \code{PreprocessingResult} object.
+#' @param ... Ignored.
+#'
+#' @return The object, invisibly.
+#'
 #' @export
 
 summary.PreprocessingResult <- function(object, ...) {
@@ -777,25 +892,96 @@ summary.PreprocessingResult <- function(object, ...) {
 
   cat("\n")
 
+  # =====================================================================
+  # Executed pipeline
+  # =====================================================================
+
+  cat("Pipeline\n")
+  cat("--------\n")
+
+  if(length(object$steps)==0){
+
+    cat("Nothing was executed\n")
+
+  }else{
+
+    for(s in object$steps){
+
+      cat(
+        sprintf(
+          "%3d  %-16s %-20s %-22s %4s x %-4s -> %4s x %-4s\n",
+          s$step,
+          s$block,
+          s$stage,
+          s$method,
+          s$samples_before, s$features_before,
+          s$samples_after, s$features_after
+        )
+      )
+
+    }
+
+  }
+
+  cat("\n")
+
   cat("Samples removed\n")
   cat("----------------\n")
 
-  print(object$removed_samples)
+  if(length(object$removed_samples)==0){
+
+    cat("None\n")
+
+  }else{
+
+    for(nm in names(object$removed_samples)){
+      cat(sprintf("%-20s %d\n", nm, length(object$removed_samples[[nm]])))
+    }
+
+  }
 
   cat("\n")
 
   cat("Features removed\n")
   cat("-----------------\n")
 
-  print(object$removed_features)
+  if(length(object$removed_features)==0){
+
+    cat("None\n")
+
+  }else{
+
+    for(nm in names(object$removed_features)){
+      cat(sprintf("%-20s %d\n", nm, length(object$removed_features[[nm]])))
+    }
+
+  }
 
   cat("\n")
 
-  cat("Statistics\n")
-  cat("----------\n")
+  cat("Quality\n")
+  cat("-------\n")
 
-  if(length(object$statistics)>0)
-    print(object$statistics)
+  if(is.data.frame(object$quality$table) && nrow(object$quality$table)>0){
+
+    print(object$quality$table, row.names = FALSE)
+
+  }else{
+
+    cat("Not available\n")
+
+  }
+
+  if(length(object$logs)>0){
+
+    cat("\n")
+
+    cat("Log\n")
+    cat("---\n")
+
+    cat(paste0("- ",object$logs),sep="\n")
+
+  }
 
   invisible(object)
 
@@ -805,6 +991,16 @@ summary.PreprocessingResult <- function(object, ...) {
 # print()
 # -----------------------------------------------------------------------------
 
+#' Print a compact overview of a CMOValidation object
+#'
+#' Shows the few numbers that describe the object at a glance. Use
+#' \code{summary()} for the full contents.
+#'
+#' @param x A \code{CMOValidation} object.
+#' @param ... Ignored.
+#'
+#' @return The object, invisibly.
+#'
 #' @export
 
 print.CMOValidation <- function(x, ...) {
@@ -855,6 +1051,16 @@ print.CMOValidation <- function(x, ...) {
 # summary()
 # -----------------------------------------------------------------------------
 
+#' Print everything stored in a CMOValidation object
+#'
+#' Walks through every section the object carries. Use
+#' \code{print()} for a one-screen overview instead.
+#'
+#' @param object A \code{CMOValidation} object.
+#' @param ... Ignored.
+#'
+#' @return The object, invisibly.
+#'
 #' @export
 
 summary.CMOValidation <- function(object, ...) {
@@ -1155,6 +1361,427 @@ summary.CMOValidation <- function(object, ...) {
 }
 
 # =============================================================================
+# EvidenceEdge
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# print()
+# -----------------------------------------------------------------------------
+
+#' Print a compact overview of a EvidenceEdge object
+#'
+#' Shows the few numbers that describe the object at a glance. Use
+#' \code{summary()} for the full contents.
+#'
+#' @param x A \code{EvidenceEdge} object.
+#' @param ... Ignored.
+#'
+#' @return The object, invisibly.
+#'
+#' @export
+
+print.EvidenceEdge <- function(x, ...) {
+
+  cat("\n")
+  cat("EvidenceEdge\n")
+  cat("============\n\n")
+
+  cat(sprintf("  %s  ->  %s\n\n", x$source, x$target))
+
+  cat(sprintf("%-24s %s\n", "Direction:", fmt_char(x$direction)))
+  cat(sprintf("%-24s %s\n", "Estimate:", fmt_num(x$estimate, 4)))
+
+  if (is.finite(x$ci_lower) && is.finite(x$ci_upper)) {
+    cat(sprintf("%-24s [%s, %s]\n", "95% CI:",
+                fmt_num(x$ci_lower, 4), fmt_num(x$ci_upper, 4)))
+  }
+
+  cat(sprintf("%-24s %s\n", "FDR:", fmt_num(x$fdr, 4)))
+  cat(sprintf("%-24s %s\n", "Methods:",
+              paste(x$supporting_methods, collapse = ", ")))
+
+  cat("\n")
+
+  cat(sprintf("%-24s %s\n", "Evidence score:", fmt_num(x$evidence_score, 1)))
+  cat(sprintf("%-24s %s\n", "  strength", fmt_num(x$strength, 3)))
+  cat(sprintf("%-24s %s\n", "  confidence", fmt_num(x$confidence, 3)))
+  cat(sprintf("%-24s %s\n", "  consistency", fmt_num(x$consistency, 3)))
+
+  if (is.finite(x$data_quality) && x$data_quality < 1) {
+    cat(sprintf("%-24s %s  (scaled down, limited by %s)\n", "  data quality",
+                fmt_num(x$data_quality, 3),
+                .report_or(x$quality_limited_by, "an ingredient")))
+  }
+
+  cat("\n")
+
+  cat(sprintf("%-24s %s\n", "Identification:", fmt_char(x$identification)))
+
+  if (isTRUE(x$identifiable)) {
+
+    cat("  The supplied DAG says this adjustment identifies the effect.\n")
+
+  } else if (isFALSE(x$identifiable)) {
+
+    cat("  The supplied DAG says this adjustment does NOT identify it.\n")
+
+  } else if (!identical(x$identification, "temporal") &&
+             !identical(x$identification, "instrument")) {
+
+    cat("  This is an association, not an identified causal effect.\n")
+
+  }
+
+  if (length(x$identification_reason) > 0) {
+
+    cat(paste(strwrap(x$identification_reason, width = 74, prefix = "  "),
+              collapse = "\n"), "\n", sep = "")
+
+  }
+
+  invisible(x)
+
+}
+
+# -----------------------------------------------------------------------------
+# summary()
+# -----------------------------------------------------------------------------
+
+#' Print everything stored in a EvidenceEdge object
+#'
+#' Walks through every section the object carries. Use
+#' \code{print()} for a one-screen overview instead.
+#'
+#' @param object A \code{EvidenceEdge} object.
+#' @param ... Ignored.
+#'
+#' @return The object, invisibly.
+#'
+#' @export
+
+summary.EvidenceEdge <- function(object, ...) {
+
+  print(object)
+
+  cat("\n")
+
+  cat("Assumptions required for a causal reading\n")
+  cat("----------------------------------------\n")
+
+  if (length(object$assumptions) == 0) {
+
+    cat("None recorded\n")
+
+  } else {
+
+    cat(paste0("- ", object$assumptions), sep = "\n")
+
+  }
+
+  if (length(object$adjustment_set) > 0) {
+
+    cat("\n")
+    cat("Adjusted for\n")
+    cat("------------\n")
+    cat(paste0("- ", object$adjustment_set), sep = "\n")
+
+  }
+
+  if (length(object$adjustment_problems) > 0) {
+
+    cat("\n")
+    cat("Problems with that adjustment\n")
+    cat("-----------------------------\n")
+
+    for (p in object$adjustment_problems) {
+      cat(paste(strwrap(p, width = 74, prefix = "  ", initial = "- "),
+                collapse = "\n"), "\n", sep = "")
+    }
+
+  }
+
+  if (length(object$required_adjustment) > 0) {
+
+    cat("\n")
+    cat("A sufficient adjustment set, per the DAG\n")
+    cat("---------------------------------------\n")
+    cat("  ", paste(object$required_adjustment, collapse = ", "), "\n",
+        sep = "")
+
+    missing <- setdiff(object$required_adjustment, object$adjustment_set)
+
+    if (length(missing) > 0) {
+      cat("  missing from this model: ", paste(missing, collapse = ", "),
+          "\n", sep = "")
+    }
+
+  }
+
+  if (length(object$quality_flags) > 0) {
+
+    cat("\n")
+    cat("What was measured and what was filled in\n")
+    cat("---------------------------------------\n")
+
+    for (f in object$quality_flags) {
+      cat(paste(strwrap(f, width = 74, prefix = "  ", initial = "- "),
+                collapse = "\n"), "\n", sep = "")
+    }
+
+    if (is.finite(object$complete_case_estimate)) {
+
+      cat(sprintf(
+        "\n  Using only the %d measured rows the estimate is %s, against %s\n",
+        object$complete_case_n,
+        format(round(object$complete_case_estimate, 4)),
+        format(round(object$estimate, 4))))
+
+      cat(if (isTRUE(object$complete_case_agrees))
+        "  overall: same direction, so this did not come out of the imputation.\n"
+        else
+          "  overall: the direction REVERSES without the filled-in rows.\n")
+
+    }
+
+  }
+
+  if (length(object$conflicting_methods) > 0) {
+
+    cat("\n")
+    cat("Conflicting methods\n")
+    cat("-------------------\n")
+    cat(paste0("- ", object$conflicting_methods), sep = "\n")
+
+  }
+
+  if (length(object$notes) > 0) {
+
+    cat("\n")
+    cat("Notes\n")
+    cat("-----\n")
+    cat(paste0("- ", object$notes), sep = "\n")
+
+  }
+
+  invisible(object)
+
+}
+
+# =============================================================================
+# ConsensusGraph
+# =============================================================================
+
+#' Print what the resampling says about the shape of the graph
+#'
+#' @param x A \code{ConsensusGraph}.
+#' @param ... Ignored.
+#'
+#' @return The object, invisibly.
+#'
+#' @export
+
+print.ConsensusGraph <- function(x, ...) {
+
+  cat("\n")
+  cat("ConsensusGraph\n")
+  cat("==============\n\n")
+
+  if (x$replicates == 0) {
+
+    cat("  ", if (length(x$notes) > 0) x$notes[1] else
+      "Nothing to report.", "\n\n", sep = "")
+
+    return(invisible(x))
+
+  }
+
+  cat(sprintf("%-28s %d (%s)\n", "Replicates:", x$replicates,
+              .report_or(x$scheme, "unknown scheme")))
+
+  if (length(x$sizes) > 0) {
+    cat(sprintf("%-28s %d to %d, median %d\n", "Relationships per replicate:",
+                min(x$sizes), max(x$sizes), as.integer(stats::median(x$sizes))))
+  }
+
+  cat(sprintf("%-28s %.0f%% of replicates\n", "Consensus threshold:",
+              100 * x$threshold))
+
+  cat("\n")
+
+  a <- x$agreement
+
+  cat(sprintf("%-28s %d\n", "Reported from the sample:", a$reported))
+  cat(sprintf("%-28s %d\n", "In the consensus:", a$consensus))
+  cat(sprintf("%-28s %d\n", "In both:", a$both))
+  cat(sprintf("%-28s %s\n", "Overlap (Jaccard):", fmt_num(a$jaccard, 2)))
+
+  if (length(a$reported_only) > 0) {
+
+    cat("\nReported, but rarely recur\n")
+    cat(strrep("-", 60), "\n", sep = "")
+    for (k in utils::head(a$reported_only, 10)) cat("  ", k, "\n", sep = "")
+    if (length(a$reported_only) > 10)
+      cat("  ... and ", length(a$reported_only) - 10, " more\n", sep = "")
+
+  }
+
+  if (length(a$consensus_only) > 0) {
+
+    # The more interesting direction: the sample that was collected happened
+    # not to show these, and a reader looking only at the report would never
+    # learn they exist.
+
+    cat("\nRecur, but were not reported\n")
+    cat(strrep("-", 60), "\n", sep = "")
+    for (k in utils::head(a$consensus_only, 10)) cat("  ", k, "\n", sep = "")
+    if (length(a$consensus_only) > 10)
+      cat("  ... and ", length(a$consensus_only) - 10, " more\n", sep = "")
+
+  }
+
+  if (is.data.frame(x$rank_stability) && nrow(x$rank_stability) > 0) {
+
+    cat("\nDid the headline findings keep their place\n")
+    cat(strrep("-", 60), "\n", sep = "")
+
+    for (i in seq_len(nrow(x$rank_stability))) {
+
+      r <- x$rank_stability[i, ]
+
+      cat(sprintf("  %2d. %-32s seen %3.0f%%, top %.0f%%, median rank %s\n",
+                  r$reported_rank,
+                  paste(r$source, "->", r$target),
+                  100 * r$frequency, 100 * r$kept_top,
+                  fmt_num(r$median_rank, 1)))
+
+    }
+
+  }
+
+  if (length(x$notes) > 0) {
+
+    cat("\nWhat this does and does not tell you\n")
+    cat(strrep("-", 60), "\n", sep = "")
+
+    for (nt in x$notes) {
+      cat(paste(strwrap(nt, width = 60, prefix = "  "), collapse = "\n"),
+          "\n", sep = "")
+    }
+
+  }
+
+  cat("\n")
+
+  invisible(x)
+
+}
+
+# =============================================================================
+# EvidenceGraph
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# print()
+# -----------------------------------------------------------------------------
+
+#' Print a compact overview of a EvidenceGraph object
+#'
+#' Shows the few numbers that describe the object at a glance. Use
+#' \code{summary()} for the full contents.
+#'
+#' @param x A \code{EvidenceGraph} object.
+#' @param ... Ignored.
+#'
+#' @return The object, invisibly.
+#'
+#' @export
+
+print.EvidenceGraph <- function(x, ...) {
+
+  cat("\n")
+  cat("EvidenceGraph\n")
+  cat("=============\n\n")
+
+  cat(sprintf("%-24s %d\n", "Nodes:", nrow(x$nodes)))
+  cat(sprintf("%-24s %d\n", "Edges:", nrow(x$edges)))
+  cat(sprintf("%-24s %d\n", "Communities:", length(x$communities$sizes)))
+  cat(sprintf("%-24s %d\n", "Paths:", nrow(x$paths)))
+
+  if (nrow(x$edges) > 0) {
+
+    cat(sprintf("%-24s %d\n", "Temporal edges:", sum(x$edges$temporal)))
+    cat(sprintf("%-24s %s\n", "Best evidence score:",
+                fmt_num(max(x$edges$evidence_score), 1)))
+
+  }
+
+  invisible(x)
+
+}
+
+# -----------------------------------------------------------------------------
+# summary()
+# -----------------------------------------------------------------------------
+
+#' Print everything stored in a EvidenceGraph object
+#'
+#' Walks through every section the object carries. Use
+#' \code{print()} for a one-screen overview instead.
+#'
+#' @param object A \code{EvidenceGraph} object.
+#' @param ... Ignored.
+#'
+#' @return The object, invisibly.
+#'
+#' @export
+
+summary.EvidenceGraph <- function(object, ...) {
+
+  print(object)
+
+  if (nrow(object$edges) == 0) {
+
+    cat("\nNo relationships passed the reporting threshold.\n")
+    return(invisible(object))
+
+  }
+
+  cat("\n")
+
+  cat("Top relationships\n")
+  cat("-----------------\n")
+
+  top <- utils::head(object$edges[order(-object$edges$evidence_score), ], 10)
+
+  print(
+    top[, c("source", "target", "direction", "evidence_score",
+            "n_methods", "identification")],
+    row.names = FALSE
+  )
+
+  cat("\n")
+
+  cat("Identification strategies\n")
+  cat("-------------------------\n")
+
+  print(table(object$edges$identification))
+
+  if (nrow(object$paths) > 0) {
+
+    cat("\n")
+    cat("Top paths\n")
+    cat("---------\n")
+
+    print(utils::head(object$paths[, c("path", "weakest_link")], 5),
+          row.names = FALSE)
+
+  }
+
+  invisible(object)
+
+}
+
+# =============================================================================
 # CMOResult
 # =============================================================================
 
@@ -1162,6 +1789,16 @@ summary.CMOValidation <- function(object, ...) {
 # print()
 # -----------------------------------------------------------------------------
 
+#' Print a compact overview of a CMOResult object
+#'
+#' Shows the few numbers that describe the object at a glance. Use
+#' \code{summary()} for the full contents.
+#'
+#' @param x A \code{CMOResult} object.
+#' @param ... Ignored.
+#'
+#' @return The object, invisibly.
+#'
 #' @export
 
 print.CMOResult <- function(x, ...) {
@@ -1170,59 +1807,53 @@ print.CMOResult <- function(x, ...) {
   cat("CMOResult\n")
   cat("=========\n\n")
 
-  cat(sprintf("%-30s %s\n",
-              "Input data:",
-              ifelse(is.null(x$data),"No","Yes")))
+  cat(sprintf("%-30s %s\n", "Outcome:", fmt_char(x$outcome$name)))
+  cat(sprintf("%-30s %s\n", "Design:", fmt_char(x$design$type)))
+  cat(sprintf("%-30s %s\n", "Samples:", fmt_num(x$performance$samples, 0)))
 
-  cat(sprintf("%-30s %s\n",
-              "Integration:",
-              ifelse(length(x$integration)==0,"No","Yes")))
+  cat(sprintf("%-30s %s of %s\n", "Features analysed:",
+              fmt_num(x$performance$features_retained, 0),
+              fmt_num(x$performance$features_screened, 0)))
 
-  cat(sprintf("%-30s %s\n",
-              "Latent representation:",
-              ifelse(length(x$latent)==0,"No","Yes")))
+  cat("\n")
 
-  cat(sprintf("%-30s %s\n",
-              "Causal analysis:",
-              ifelse(length(x$causal)==0,"No","Yes")))
+  cat(sprintf("%-30s %s\n", "Methods run:",
+              fmt_num(x$performance$generators_run, 0)))
+  cat(sprintf("%-30s %s\n", "Relationships found:",
+              fmt_num(x$performance$edges_generated, 0)))
+  cat(sprintf("%-30s %s\n", "After integration:",
+              fmt_num(x$performance$edges_integrated, 0)))
+  cat(sprintf("%-30s %s\n", "With temporal precedence:",
+              fmt_num(x$performance$temporal_edges, 0)))
 
-  cat(sprintf("%-30s %s\n",
-              "Network:",
-              ifelse(length(x$network)==0,"No","Yes")))
+  cat("\n")
 
-  cat(sprintf("%-30s %s\n",
-              "Biomarkers:",
-              ifelse(length(x$biomarkers)==0,"No","Yes")))
+  cat(sprintf("%-30s %d\n", "Causal paths:", nrow(x$causal_paths)))
+  cat(sprintf("%-30s %d\n", "Plots:", length(x$plots)))
+  cat(sprintf("%-30s %d\n", "Tables:", length(x$tables)))
 
-  cat(sprintf("%-30s %s\n",
-              "Prediction:",
-              ifelse(length(x$prediction)==0,"No","Yes")))
-
-  cat(sprintf("%-30s %s\n",
-              "Enrichment:",
-              ifelse(length(x$enrichment)==0,"No","Yes")))
-
-  cat(sprintf("%-30s %d\n",
-              "Plots:",
-              length(x$plots)))
-
-  cat(sprintf("%-30s %d\n",
-              "Tables:",
-              length(x$tables)))
-
-  cat(sprintf("%-30s %d\n",
-              "Reports:",
-              length(x$reports)))
+  if (!is.null(x$execution$runtime)) {
+    cat(sprintf("%-30s %.2f s\n", "Runtime:", x$execution$runtime))
+  }
 
   invisible(x)
 
 }
 
-
 # -----------------------------------------------------------------------------
 # summary()
 # -----------------------------------------------------------------------------
 
+#' Print everything stored in a CMOResult object
+#'
+#' Walks through every section the object carries. Use
+#' \code{print()} for a one-screen overview instead.
+#'
+#' @param object A \code{CMOResult} object.
+#' @param ... Ignored.
+#'
+#' @return The object, invisibly.
+#'
 #' @export
 
 summary.CMOResult <- function(object, ...) {
@@ -1231,130 +1862,162 @@ summary.CMOResult <- function(object, ...) {
   cat("================== CMOResult Summary ==================\n\n")
 
   # =====================================================================
-  # Workflow
+  # Study
   # =====================================================================
 
-  cat("Workflow\n")
-  cat("--------\n")
+  cat("Study\n")
+  cat("-----\n")
 
-  steps <- c(
+  cat(sprintf("%-26s %s\n", "Outcome", fmt_char(object$outcome$name)))
+  cat(sprintf("%-26s %s\n", "Outcome type", fmt_char(object$outcome$type)))
+  cat(sprintf("%-26s %s\n", "Design", fmt_char(object$design$type)))
+  cat(sprintf("%-26s %s\n", "Samples", fmt_num(object$performance$samples, 0)))
 
-    Integration = length(object$integration)>0,
-
-    Latent = length(object$latent)>0,
-
-    Causal = length(object$causal)>0,
-
-    Network = length(object$network)>0,
-
-    Biomarkers = length(object$biomarkers)>0,
-
-    Prediction = length(object$prediction)>0,
-
-    Enrichment = length(object$enrichment)>0,
-
-    Validation =
-      !is.null(object$validation) &&
-      length(object$validation) > 0
-
-  )
-
-  for(i in seq_along(steps)){
-
-    cat(
-
-      sprintf(
-
-        "%-20s %s\n",
-
-        names(steps)[i],
-
-        ifelse(steps[i],"Completed","Not performed")
-
-      )
-
-    )
-
+  if (length(object$design$notes) > 0) {
+    cat(paste0("  ", object$design$notes), sep = "\n")
   }
 
   cat("\n")
 
   # =====================================================================
-  # Parameters
+  # Methods
   # =====================================================================
 
-  cat("Parameters\n")
-  cat("----------\n")
+  cat("Evidence generators\n")
+  cat("-------------------\n")
 
-  if(length(object$parameters)==0){
+  if (length(object$models) == 0) {
 
     cat("None\n")
 
-  }else{
+  } else {
 
-    print(object$parameters)
+    for (nm in names(object$models)) {
+
+      cat(sprintf("%-22s %-32s %d relationship(s)\n",
+                  nm, object$models[[nm]]$label,
+                  object$models[[nm]]$n_edges))
+
+    }
+
+  }
+
+  if (length(object$logs) > 0) {
+
+    skipped <- grep("skipped|failed", object$logs, value = TRUE)
+
+    if (length(skipped) > 0) {
+
+      cat("\n")
+      cat(paste0("  ", skipped), sep = "\n")
+
+    }
 
   }
 
   cat("\n")
 
   # =====================================================================
-  # Performance
+  # Main findings
   # =====================================================================
 
-  cat("Performance\n")
+  cat("Main findings\n")
+  cat("-------------\n")
+
+  if (length(object$interpretation$statements) == 0) {
+
+    cat("None\n")
+
+  } else {
+
+    cat(paste0("- ", object$interpretation$statements), sep = "\n")
+
+  }
+
+  cat("\n")
+
+  # =====================================================================
+  # Drivers
+  # =====================================================================
+
+  cat("Strongest relationships with the outcome\n")
+  cat("----------------------------------------\n")
+
+  drivers <- object$interpretation$drivers
+
+  if (is.data.frame(drivers) && nrow(drivers) > 0) {
+
+    print(
+      drivers[, c("source", "direction", "evidence_score", "n_methods",
+                  "identification")],
+      row.names = FALSE
+    )
+
+  } else {
+
+    cat("None passed the reporting threshold\n")
+
+  }
+
+  cat("\n")
+
+  # =====================================================================
+  # Structure
+  # =====================================================================
+
+  cat("Graph\n")
+  cat("-----\n")
+
+  cat(sprintf("%-26s %d\n", "Nodes", object$network$n_nodes))
+  cat(sprintf("%-26s %d\n", "Edges", object$network$n_edges))
+  cat(sprintf("%-26s %d\n", "Communities",
+              length(object$network$communities$sizes)))
+
+  if (length(object$interpretation$hubs) > 0) {
+    cat(sprintf("%-26s %s\n", "Hubs",
+                paste(utils::head(object$interpretation$hubs, 5), collapse = ", ")))
+  }
+
+  if (length(object$interpretation$mediators) > 0) {
+    cat(sprintf("%-26s %s\n", "Mediators",
+                paste(utils::head(object$interpretation$mediators, 5), collapse = ", ")))
+  }
+
+  if (length(object$interpretation$bridges) > 0) {
+    cat(sprintf("%-26s %s\n", "Cross-block bridges",
+                paste(utils::head(object$interpretation$bridges, 5), collapse = ", ")))
+  }
+
+  cat("\n")
+
+  # =====================================================================
+  # Paths
+  # =====================================================================
+
+  cat("Top paths to the outcome\n")
+  cat("------------------------\n")
+
+  if (nrow(object$causal_paths) > 0) {
+
+    print(utils::head(object$causal_paths[, c("path", "weakest_link")], 5),
+          row.names = FALSE)
+
+  } else {
+
+    cat("None\n")
+
+  }
+
+  cat("\n")
+
+  # =====================================================================
+  # Limitations
+  # =====================================================================
+
+  cat("Limitations\n")
   cat("-----------\n")
 
-  if(length(object$performance)==0){
-
-    cat("Not available\n")
-
-  }else{
-
-    print(object$performance)
-
-  }
-
-  cat("\n")
-
-  # =====================================================================
-  # Available outputs
-  # =====================================================================
-
-  cat("Outputs\n")
-  cat("-------\n")
-
-  cat(sprintf("%-25s %d\n",
-              "Plots",
-              length(object$plots)))
-
-  cat(sprintf("%-25s %d\n",
-              "Tables",
-              length(object$tables)))
-
-  cat(sprintf("%-25s %d\n",
-              "Reports",
-              length(object$reports)))
-
-  cat("\n")
-
-  # =====================================================================
-  # History
-  # =====================================================================
-
-  cat("History\n")
-  cat("-------\n")
-
-  if(length(object$history)==0){
-
-    cat("Empty\n")
-
-  }else{
-
-    cat(paste0("- ",object$history),
-        sep="\n")
-
-  }
+  cat(paste0("- ", object$report$limitations), sep = "\n")
 
   invisible(object)
 
@@ -1368,18 +2031,27 @@ summary.CMOResult <- function(object, ...) {
 # Internal report helpers
 # -----------------------------------------------------------------------------
 
+#' Return default when value is missing
+#'
+#' @noRd
 .report_or <- function(x, default = NA) {
 
   if (is.null(x) || length(x) == 0) default else x
 
 }
 
+#' Print a repeated character divider line
+#'
+#' @noRd
 .report_rule <- function(width = 78, char = "=") {
 
   cat(strrep(char, width), "\n", sep = "")
 
 }
 
+#' Print title framed by rule lines
+#'
+#' @noRd
 .report_title <- function(text, width = 78) {
 
   cat("\n")
@@ -1389,6 +2061,9 @@ summary.CMOResult <- function(object, ...) {
 
 }
 
+#' Print underlined section heading
+#'
+#' @noRd
 .report_section <- function(text, width = 78) {
 
   cat("\n")
@@ -1816,6 +2491,38 @@ report.CMOValidation <- function(object,
       cat("\n")
       cat(sprintf("  %-26s %d\n", "Smallest pairwise overlap", min(off)))
       cat(sprintf("  %-26s %d\n", "Largest pairwise overlap", max(off)))
+
+      # The number an analysis actually runs on, and the one the matrix
+      # above cannot show: every pair can share everything while all of them
+      # together share nothing.
+
+      shared_all <- object$summary$shared_by_all
+
+      if (!is.null(shared_all)) {
+
+        cat(sprintf("  %-26s %d\n", "Present in EVERY block", shared_all))
+
+        if (shared_all < min(off)) {
+
+          cat("\n  An analysis across all blocks will use those ",
+              shared_all, " sample(s),\n", sep = "")
+          cat("  not the pairwise figures above.\n")
+
+          cum <- object$summary$cumulative_overlap
+
+          if (is.data.frame(cum) && nrow(cum) > 0) {
+            cat("\n  Adding blocks largest first:\n")
+            for (i in seq_len(nrow(cum))) {
+              cat(sprintf("    + %-24s %d left%s\n", cum$block[i],
+                          cum$shared_after[i],
+                          if (cum$lost[i] > 0)
+                            sprintf("  (-%d)", cum$lost[i]) else ""))
+            }
+          }
+
+        }
+
+      }
 
       if (min(off) == 0) {
         cat("\n  At least one pair of blocks shares no samples. Integration\n")
@@ -2255,7 +2962,10 @@ report.CMOValidation <- function(object,
 # Section builders
 # -----------------------------------------------------------------------------
 
+#' Build HTML overview cards with quality gauge
+#'
 #' @keywords internal
+#' @noRd
 .html_section_overview <- function(object) {
 
   s <- object$summary
@@ -2305,7 +3015,10 @@ report.CMOValidation <- function(object,
 
 }
 
+#' Build HTML diagnostics table for each block
+#'
 #' @keywords internal
+#' @noRd
 .html_section_blocks <- function(object) {
 
   blocks <- names(object$diagnostics)
@@ -2374,7 +3087,10 @@ report.CMOValidation <- function(object,
 
 }
 
+#' Build HTML summary of preprocessing steps per block
+#'
 #' @keywords internal
+#' @noRd
 .html_section_preprocessing <- function(object) {
 
   blocks <- names(object$recipes)
@@ -2438,7 +3154,10 @@ report.CMOValidation <- function(object,
 
 }
 
+#' Build HTML panels comparing transformation candidates per block
+#'
 #' @keywords internal
+#' @noRd
 .html_section_transformations <- function(object) {
 
   blocks <- names(object$transformations)
@@ -2470,7 +3189,10 @@ report.CMOValidation <- function(object,
 
 }
 
+#' Build HTML chip lists for QC flags
+#'
 #' @keywords internal
+#' @noRd
 .html_section_qc <- function(object) {
 
   qc <- object$qc
@@ -2501,7 +3223,10 @@ report.CMOValidation <- function(object,
 
 }
 
+#' Build HTML panels of recommended actions per block
+#'
 #' @keywords internal
+#' @noRd
 .html_section_actions <- function(object) {
 
   blocks <- names(object$recommendations$blocks)
@@ -2521,7 +3246,10 @@ report.CMOValidation <- function(object,
 
 }
 
+#' Build HTML sample overlap table with note
+#'
 #' @keywords internal
+#' @noRd
 .html_section_overlap <- function(object) {
 
   ov <- object$summary$overlap
@@ -2539,9 +3267,27 @@ report.CMOValidation <- function(object,
 
     off <- ov[row(ov) != col(ov)]
 
+    shared_all <- object$summary$shared_by_all
+
     note <- paste0(
       "<p class='muted'>Smallest pairwise overlap: <b>", min(off),
-      "</b> &middot; largest: <b>", max(off), "</b></p>",
+      "</b> &middot; largest: <b>", max(off), "</b>",
+      if (!is.null(shared_all))
+        paste0(" &middot; present in <i>every</i> block: <b>", shared_all,
+               "</b>") else "",
+      "</p>",
+
+      # The table above answers a question nobody asked. An analysis needs
+      # the samples every block has at once, and that number can be far
+      # smaller than any pair suggests without anything looking wrong.
+      if (!is.null(shared_all) && shared_all < min(off))
+        paste0("<p class='warnbox'>Every pair of blocks shares at least ",
+               min(off), " samples, but only <b>", shared_all,
+               "</b> are present in all of them at once. An analysis across ",
+               "all blocks will use those ", shared_all,
+               ", because each block is missing a different part of the ",
+               "cohort.</p>") else "",
+
       if (min(off) == 0)
         "<p class='warnbox'>At least one pair of blocks shares no samples. Integration across those blocks will require a different sample-matching strategy.</p>"
       else ""
@@ -2549,16 +3295,36 @@ report.CMOValidation <- function(object,
 
   }
 
+  cumulative <- object$summary$cumulative_overlap
+
+  ladder <- if (is.data.frame(cumulative) && nrow(cumulative) > 1 &&
+                cumulative$shared_after[nrow(cumulative)] <
+                  min(cumulative$samples)) {
+
+    names(cumulative) <- c("Block added", "Samples in it",
+                           "Shared after adding it", "Cost")
+
+    paste0("<h3>How the shared count falls as blocks are added</h3>",
+           "<p class='muted'>Largest block first. The row where the count ",
+           "drops is the block that cost you those samples.</p>",
+           .html_table(cumulative))
+
+  } else ""
+
   paste0(
     "<section id='overlap'><h2>Sample overlap</h2>",
     .html_table(df),
     note,
+    ladder,
     "</section>"
   )
 
 }
 
+#' Build HTML section embedding diagnostic plot images
+#'
 #' @keywords internal
+#' @noRd
 .html_section_plots <- function(object, plot_width, plot_height, plot_res) {
 
   slots <- names(object$plots)
@@ -2622,7 +3388,10 @@ report.CMOValidation <- function(object,
 
 }
 
+#' Build HTML section listing data and QC tables
+#'
 #' @keywords internal
+#' @noRd
 .html_section_tables <- function(object) {
 
   tabs <- names(object$tables)
@@ -2648,7 +3417,10 @@ report.CMOValidation <- function(object,
 # Style and behaviour
 # -----------------------------------------------------------------------------
 
+#' Return CSS stylesheet for the HTML report
+#'
 #' @keywords internal
+#' @noRd
 .html_style <- function() {
 "<style>
 :root{--bg:#f6f7f9;--fg:#1c1f23;--muted:#6b7280;--line:#e2e5ea;--panel:#fff;
@@ -2728,7 +3500,10 @@ footer{color:var(--muted);font-size:12px;border-top:1px solid var(--line);paddin
 </style>"
 }
 
+#' Return JavaScript for tab switching and table sorting
+#'
 #' @keywords internal
+#' @noRd
 .html_script <- function() {
 "<script>
 function cmoShow(id,btn){
@@ -2927,3 +3702,1956 @@ document.addEventListener('DOMContentLoaded',function(){
 
 }
 
+
+# =============================================================================
+# Analysis report
+# =============================================================================
+# The audience for this document is not necessarily a statistician, and that
+# changes what it has to do. A reader who does not know what an adjusted
+# association is will read "evidence score 87" as "proven cause" unless the
+# document actively stops them. So the plain-language layer is not decoration
+# here: it is the part that keeps the report honest.
+#
+# Every user-facing string goes through .result_text() so the wording lives in
+# one place.
+# =============================================================================
+
+#' User-facing wording for the analysis report
+#'
+#' Keeping the prose in one table means it can be reviewed as prose, and a
+#' translation is a matter of filling a column rather than hunting through
+#' markup.
+#'
+#' @keywords internal
+
+.result_text <- function(key) {
+
+  wording <- c(
+
+    title = "Analysis report",
+
+    intro = paste(
+      "This report summarises the relationships found between the measured",
+      "variables and the outcome studied. It was produced automatically:",
+      "every number below comes from the data supplied, and nothing was",
+      "chosen by hand."
+    ),
+
+    howto_title = "How to read this report",
+
+    score_intro = paste(
+      "Each relationship gets a score from 0 to 100 called the evidence",
+      "score. It is built from three separate things, and it helps to keep",
+      "them apart:"
+    ),
+
+    strength_label = "Size",
+    strength_text = paste(
+      "How big the relationship is. A large value means that when one",
+      "variable changes, the other changes a lot."
+    ),
+
+    confidence_label = "Precision",
+    confidence_text = paste(
+      "How sure we are of the number itself. This grows with the number of",
+      "samples and shrinks when the estimate is noisy."
+    ),
+
+    consistency_label = "Agreement",
+    consistency_text = paste(
+      "How many of the analysis methods saw the same thing. Several methods",
+      "were run on the same data; this counts how many agreed."
+    ),
+
+    causation_title = "What this report can and cannot tell you",
+
+    causation_text = paste(
+      "Finding that two things go together is not the same as showing that",
+      "one causes the other. Two variables can move together because a third",
+      "thing drives both of them. Ice cream sales and sunburn rise together,",
+      "but ice cream does not cause sunburn: hot weather causes both."
+    ),
+
+    agreement_warning = paste(
+      "Agreement between methods does not fix this. If every method is",
+      "looking at the same data, and something that was never measured is",
+      "driving both variables, then every method will report the same",
+      "relationship and every one of them will be misled in the same way.",
+      "High agreement means the finding is stable, not that it is causal."
+    ),
+
+    identification_intro = paste(
+      "Because of that, every relationship below is labelled with how much",
+      "can be claimed about cause:"
+    ),
+
+    id_none_label = "Observed together",
+    id_none_text = paste(
+      "The two were seen to move together and nothing else was taken into",
+      "account. This is the weakest claim."
+    ),
+
+    id_adjustment_label = "Other factors accounted for",
+    id_adjustment_text = paste(
+      "Known factors were subtracted out. This is stronger, but only for the",
+      "factors that were actually measured. Anything not measured is still",
+      "unaccounted for."
+    ),
+
+    id_temporal_label = "Measured in order",
+    id_temporal_text = paste(
+      "The first variable was measured before the second. That rules out the",
+      "relationship running backwards, which is real progress, but it still",
+      "does not rule out a third factor driving both."
+    ),
+
+    id_instrument_label = "Instrumented",
+    id_instrument_text = paste(
+      "A special kind of variable was used that, under strong assumptions,",
+      "does support a causal reading."
+    ),
+
+    findings_title = "Main findings",
+    findings_none = "No relationship passed the reporting threshold.",
+
+    pathways_title = "Chains of relationships",
+    pathways_intro = paste(
+      "Sometimes a variable appears to act on the outcome through another",
+      "one. These chains are shown below, strongest first. A chain is only as",
+      "trustworthy as its weakest step, so that is what it is ranked by."
+    ),
+    pathways_none = "No chains of relationships were found.",
+
+    network_title = "The overall picture",
+    network_intro = paste(
+      "All relationships together form a map. Variables that connect to many",
+      "others are shown as hubs; variables that sit between two different",
+      "kinds of measurement are shown as bridges."
+    ),
+
+    importance_title = "Which variables matter most",
+    importance_intro = paste(
+      "Several methods rank the variables by how useful they are. Because",
+      "each method produces numbers on its own scale, the rankings are",
+      "combined rather than the raw values. A value near 1 means the variable",
+      "came out near the top in most methods."
+    ),
+
+    methods_title = "How the analysis was done",
+    methods_intro = paste(
+      "The following methods were run. Each one looks at the data",
+      "differently, which is why agreement between them is reported."
+    ),
+
+    data_title = "What the analysis is based on",
+
+    limitations_title = "Limitations",
+    limitations_intro = paste(
+      "Every analysis rests on things that could be otherwise. These apply to",
+      "the results above and should be read alongside them, not after them."
+    ),
+
+    technical_title = "Technical detail",
+    technical_intro = paste(
+      "The complete tables behind the report, for readers who want them."
+    ),
+
+    glossary_title = "Glossary"
+
+  )
+
+  if (!(key %in% names(wording))) return(key)
+
+  unname(wording[[key]])
+
+}
+
+#' Plain-language rendering of a direction
+#' @keywords internal
+.result_plain_direction <- function(direction, source, target,
+                                    encoding = NULL) {
+
+  # A category comparison needs different words from a measurement. "Higher
+  # Sex=M goes together with higher HDL" is neither English nor true: the
+  # column is a yes/no marker, and what it compares is being one category
+  # rather than another.
+
+  if (!is.null(encoding)) {
+
+    if (is.na(direction)) {
+      return(sprintf("Being %s rather than %s is related to %s",
+                     encoding$level, encoding$reference, target))
+    }
+
+    return(sprintf(
+      "Being %s rather than %s goes together with %s %s",
+      encoding$level, encoding$reference,
+      if (identical(direction, "positive")) "higher" else "lower",
+      target
+    ))
+
+  }
+
+  if (is.na(direction)) {
+    return(sprintf("%s is related to %s", source, target))
+  }
+
+  if (identical(direction, "positive")) {
+    sprintf("Higher %s goes together with higher %s", source, target)
+  } else {
+    sprintf("Higher %s goes together with lower %s", source, target)
+  }
+
+}
+
+#' The encoding record for a feature, when it came from a category
+#' @keywords internal
+#' @noRd
+.feature_encoding <- function(object, feature) {
+
+  encoding <- object$data$encoding
+
+  if (is.null(encoding) || !(feature %in% names(encoding))) return(NULL)
+
+  encoding[[feature]]
+
+}
+
+#' Plain-language label and explanation for an identification strategy
+#' @keywords internal
+.result_identification_label <- function(identification) {
+
+  switch(
+    identification,
+    none = .result_text("id_none_label"),
+    adjustment = .result_text("id_adjustment_label"),
+    temporal = .result_text("id_temporal_label"),
+    instrument = .result_text("id_instrument_label"),
+    identification
+  )
+
+}
+
+#' Map identification strategy to strength category
+#'
+#' @keywords internal
+#' @noRd
+.result_identification_class <- function(identification) {
+
+  switch(
+    identification,
+    none = "weak",
+    adjustment = "medium",
+    temporal = "strong",
+    instrument = "strong",
+    "weak"
+  )
+
+}
+
+#' Headline findings written for a non-specialist reader
+#'
+#' \code{.interpret_graph()} phrases its statements for someone who knows
+#' what an adjusted association is. That vocabulary is exactly what this
+#' report exists to translate, so the general-audience version is generated
+#' from the same facts in plainer words rather than reused verbatim.
+#'
+#' @keywords internal
+
+.result_plain_statements <- function(object) {
+
+  statements <- character(0)
+
+  drivers <- object$interpretation$drivers
+  outcome <- object$outcome$name
+
+  if (is.data.frame(drivers) && nrow(drivers) > 0) {
+
+    best <- drivers[1, ]
+
+    statements <- c(statements, sprintf(
+      "The clearest finding: %s. %d of the methods used agreed on this.",
+      .result_plain_direction(best$direction, best$source, outcome,
+                              .feature_encoding(object, best$source)),
+      best$n_methods
+    ))
+
+    if (nrow(drivers) > 1) {
+
+      statements <- c(statements, sprintf(
+        "%d variable(s) in total showed a relationship with %s.",
+        nrow(drivers), outcome
+      ))
+
+    }
+
+  }
+
+  mediators <- object$interpretation$mediators
+
+  if (length(mediators) > 0 && nrow(object$causal_paths) > 0) {
+
+    statements <- c(statements, sprintf(
+      "Some variables appear to act on %s indirectly, through %s.",
+      outcome, mediators[1]
+    ))
+
+  }
+
+  # The headline number a non-specialist most needs is how much of this can
+  # be read as cause, so it is stated in the summary rather than left to the
+  # limitations section.
+
+  total <- object$performance$edges_integrated
+  temporal <- object$performance$temporal_edges
+
+  if (isTRUE(total > 0)) {
+
+    statements <- c(statements, if (isTRUE(temporal > 0)) {
+
+      sprintf(
+        paste("For %d of the %d relationships found, one variable was",
+              "measured before the other, so the relationship cannot run",
+              "backwards. For the remaining %d we can only say the variables",
+              "move together."),
+        temporal, total, total - temporal
+      )
+
+    } else {
+
+      paste(
+        "Everything here was measured at a single point in time. That means",
+        "we can say these variables move together, but not which one comes",
+        "first, and not that one causes the other."
+      )
+
+    })
+
+  }
+
+  statements
+
+}
+
+#' A 0-100 score rendered as an inline bar
+#' @keywords internal
+.result_score_bar <- function(score) {
+
+  if (is.null(score) || length(score) == 0 || is.na(score)) {
+    return("<span class='muted'>not available</span>")
+  }
+
+  pct <- max(0, min(100, score))
+
+  level <- if (pct >= 60) "good" else if (pct >= 30) "ok" else "warn"
+
+  paste0(
+    "<div class='scorewrap'><div class='scorebar'><div class='scorefill ",
+    level, "' style='width:", round(pct, 1), "%'></div></div>",
+    "<span class='scorenum'>", sprintf("%.0f", pct), "</span></div>"
+  )
+
+}
+
+# -----------------------------------------------------------------------------
+# Supplementary style
+# -----------------------------------------------------------------------------
+
+#' Return CSS styles for the results report
+#'
+#' @keywords internal
+#' @noRd
+.result_style <- function() {
+"<style>
+.lead{font-size:16px;line-height:1.65;max-width:70ch}
+.callout{background:#fff7e8;border:1px solid #f0d9a8;border-left-width:5px;
+border-left-color:var(--warn);border-radius:8px;padding:14px 18px;margin:16px 0;max-width:80ch}
+.callout h4{margin:0 0 8px;font-size:15px}
+.callout p{margin:0 0 8px}
+.callout p:last-child{margin-bottom:0}
+.callout ul{margin:0 0 8px;padding-left:20px}
+.callout.good{background:#f0f9f3;border-color:#bfe3cd;border-left-color:var(--good)}
+.callout.danger{background:#fdf1f1;border-color:#f0c4c4;border-left-color:var(--bad)}
+.explain{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+padding:16px 18px;margin-bottom:12px}
+.explain h4{margin:0 0 6px;font-size:15px}
+.explain p{margin:0;color:var(--muted);font-size:14px}
+.finding{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+padding:16px 18px;margin-bottom:12px}
+.finding-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:10px}
+.finding-title{font-size:16px;font-weight:600}
+.badge-id{border-radius:999px;padding:3px 12px;font-size:12px;font-weight:600;white-space:nowrap}
+.badge-id.weak{background:#f1f2f4;color:var(--muted)}
+.badge-id.medium{background:#eef2fb;color:#25417f}
+.badge-id.strong{background:#e6f5ec;color:#14663a}
+.scorewrap{display:flex;align-items:center;gap:10px;min-width:180px}
+.scorebar{flex:1;height:10px;background:var(--line);border-radius:999px;overflow:hidden;min-width:110px}
+.scorefill{height:100%;border-radius:999px}
+.scorefill.good{background:var(--good)}
+.scorefill.ok{background:var(--ok)}
+.scorefill.warn{background:var(--warn)}
+.scorenum{font-weight:600;font-size:13px;min-width:26px;text-align:right}
+.finding-detail{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+gap:10px;margin-top:10px;font-size:13px;color:var(--muted)}
+.finding-detail b{color:var(--fg);display:block;font-size:15px}
+.chain{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+padding:14px 18px;margin-bottom:10px}
+.chain-path{font-size:15px;font-weight:600;word-break:break-word}
+.chain-meta{color:var(--muted);font-size:13px;margin-top:6px}
+.glossary dt{font-weight:600;margin-top:10px}
+.glossary dd{margin:2px 0 0 0;color:var(--muted);font-size:14px}
+details.contrib{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+details.contrib>summary{cursor:pointer;font-size:13.5px;font-weight:600;color:var(--accent)}
+details.contrib[open]>summary{margin-bottom:10px}
+details.contrib .explain{margin-bottom:8px}
+.provgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin:14px 0}
+.provcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.provhead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:6px}
+.provrange{font-size:11.5px;color:var(--muted);background:var(--line);border-radius:999px;padding:2px 9px;white-space:nowrap}
+.provcard p{margin:0 0 6px;font-size:13.5px}
+.provwatch{color:var(--muted);font-size:13px;margin:0}
+.blocklist{margin:14px 0}
+.blockrow{display:grid;grid-template-columns:150px 1fr 62px;grid-template-areas:
+'name bar pct' 'name meta meta';gap:4px 12px;align-items:center;
+padding:10px 0;border-bottom:1px solid var(--line)}
+.blockrow:last-child{border-bottom:none}
+.blockname{grid-area:name;font-weight:600;font-size:14px;word-break:break-word}
+.blockbar{grid-area:bar;height:11px;background:var(--line);border-radius:999px;overflow:hidden}
+.blockfill{height:100%;border-radius:999px;background:var(--accent)}
+.blockpct{grid-area:pct;text-align:right;font-weight:600;font-size:13px}
+.blockmeta{grid-area:meta;color:var(--muted);font-size:12.5px}
+pre.flow{font-size:12.5px;line-height:1.4}
+</style>"
+}
+
+# -----------------------------------------------------------------------------
+# Sections
+# -----------------------------------------------------------------------------
+
+#' Build HTML overview cards for analysis results
+#'
+#' @keywords internal
+#' @noRd
+.html_result_overview <- function(object) {
+
+  performance <- object$performance
+
+  cards <- paste0(
+    .html_card("Outcome studied", .report_or(object$outcome$name, "-")),
+    .html_card("People or samples", .report_or(performance$samples, "-")),
+    .html_card("Variables examined", .report_or(performance$features_retained, "-")),
+    .html_card("Relationships found", .report_or(performance$edges_integrated, "-")),
+    .html_card("Methods used", .report_or(performance$generators_run, "-")),
+    .html_card("Measured in order",
+               paste0(.report_or(performance$temporal_edges, 0), " of ",
+                      .report_or(performance$edges_integrated, 0)))
+  )
+
+  statements <- .result_plain_statements(object)
+
+  paste0(
+    "<section id='overview' class='active'><h2>", .result_text("findings_title"),
+    "</h2>",
+
+    "<p class='lead'>", .html_escape(.result_text("intro")), "</p>",
+
+    "<div class='cards'>", cards, "</div>",
+
+    if (length(statements) > 0)
+      paste0("<h3>In short</h3>", .html_list(statements)) else "",
+
+    "<div class='callout'><h4>", .html_escape(.result_text("causation_title")),
+    "</h4><p>", .html_escape(.result_text("causation_text")), "</p>",
+    "<p>", .html_escape(.result_text("agreement_warning")), "</p></div>",
+
+    "</section>"
+  )
+
+}
+
+#' Build HTML explanations of scoring and identification concepts
+#'
+#' @keywords internal
+#' @noRd
+.html_result_howto <- function(object) {
+
+  score_blocks <- paste0(
+    "<div class='explain'><h4>", .result_text("strength_label"),
+    "</h4><p>", .html_escape(.result_text("strength_text")), "</p></div>",
+    "<div class='explain'><h4>", .result_text("confidence_label"),
+    "</h4><p>", .html_escape(.result_text("confidence_text")), "</p></div>",
+    "<div class='explain'><h4>", .result_text("consistency_label"),
+    "</h4><p>", .html_escape(.result_text("consistency_text")), "</p></div>"
+  )
+
+  id_blocks <- paste0(
+    vapply(
+      c("none", "adjustment", "temporal", "instrument"),
+      function(id) {
+        paste0(
+          "<div class='explain'><h4><span class='badge-id ",
+          .result_identification_class(id), "'>",
+          .html_escape(.result_identification_label(id)), "</span></h4>",
+          "<p>", .html_escape(.result_text(paste0("id_", id, "_text"))),
+          "</p></div>"
+        )
+      },
+      character(1)
+    ),
+    collapse = ""
+  )
+
+  paste0(
+    "<section id='howto'><h2>", .result_text("howto_title"), "</h2>",
+
+    "<p class='lead'>", .html_escape(.result_text("score_intro")), "</p>",
+    score_blocks,
+
+    "<div class='callout'><h4>", .html_escape(.result_text("causation_title")),
+    "</h4><p>", .html_escape(.result_text("causation_text")), "</p>",
+    "<p>", .html_escape(.result_text("agreement_warning")), "</p></div>",
+
+    "<p class='lead'>", .html_escape(.result_text("identification_intro")), "</p>",
+    id_blocks,
+
+    .html_result_quality_howto(object),
+
+    .html_result_dag_howto(object),
+
+    "</section>"
+  )
+
+}
+
+#' Explain, once, what the data-quality discount is and why it exists
+#'
+#' @keywords internal
+#' @noRd
+.html_result_quality_howto <- function(object) {
+
+  affected <- Filter(function(e) length(e$quality_flags) > 0, object$evidence)
+
+  if (length(affected) == 0) return("")
+
+  worst <- min(vapply(affected, function(e)
+    .report_or(e$data_quality, 1), numeric(1)))
+
+  checked <- Filter(function(e) is.finite(e$complete_case_estimate), affected)
+  reversed <- Filter(function(e) isFALSE(e$complete_case_agrees), checked)
+
+  paste0(
+    "<div class='callout'><h4>Measured values and filled-in values</h4>",
+
+    "<p>Some of the variables here arrived with gaps. Rather than throw those ",
+    "people away, preprocessing estimated what the missing numbers probably ",
+    "were. That is standard practice and usually the right call, but it has a ",
+    "consequence nothing downstream can see: once a gap is filled, no model ",
+    "can tell a measurement from an estimate, and the confidence intervals ",
+    "come out exactly as narrow as if every value had been real.</p>",
+
+    "<p><b>", length(affected), "</b> of the relationships in this report ",
+    "involve a variable that was partly filled in. Their scores were scaled ",
+    "down in proportion to how much was filled and how much the filling ",
+    "method preserves &mdash; the most affected keeps <b>",
+    .html_escape(sprintf("%.0f%%", 100 * worst)), "</b> of what its ",
+    "statistics alone would earn. Nothing else about them was changed.</p>",
+
+    if (length(checked) > 0)
+      paste0("<p>Each was also refitted using only the people whose value was ",
+             "actually measured. <b>", length(reversed), "</b> of <b>",
+             length(checked), "</b> changed direction. A relationship that ",
+             "reverses when the estimated values are removed was produced by ",
+             "the filling, not found in the data.</p>") else "",
+
+    "<p class='muted'>Sample size is a separate matter and is already in the ",
+    "precision score. This is only about values that were reconstructed.</p>",
+
+    "</div>"
+  )
+
+}
+
+#' Explain the DAG audit, once, where the reader learns the vocabulary
+#'
+#' The per-finding verdicts say what happened. This says what the words mean,
+#' and — when no DAG was supplied — why every finding is silent about it.
+#'
+#' @keywords internal
+#' @noRd
+.html_result_dag_howto <- function(object) {
+
+  audited <- vapply(object$evidence,
+                    function(e) !is.null(e$identifiable) &&
+                      !is.na(e$identifiable), logical(1))
+
+  if (length(audited) == 0 || !any(audited)) {
+
+    return(paste0(
+      "<div class='callout'><h4>No causal diagram was supplied</h4>",
+      "<p>Every label above was inferred from the shape of the study alone: ",
+      "what was measured, when, and what was adjusted for. That tells you a ",
+      "model controlled for something; it cannot tell you whether the right ",
+      "something was controlled for.</p>",
+      "<p>If you are willing to commit to a diagram of what causes what, pass ",
+      "it as <code>analyze(..., dag = )</code> and each relationship will be ",
+      "checked against it. Adjusting for a variable that sits between the ",
+      "exposure and the outcome, or for one the outcome itself causes, makes ",
+      "an estimate worse rather than better, and nothing in the data will ",
+      "reveal that.</p></div>"
+    ))
+
+  }
+
+  n_ok <- sum(vapply(object$evidence,
+                     function(e) isTRUE(e$identifiable), logical(1)))
+
+  paste0(
+    "<div class='callout'><h4>What the causal diagram check means</h4>",
+
+    "<p>You supplied a diagram of what causes what, and each relationship was ",
+    "checked against it: <b>", n_ok, "</b> of <b>", sum(audited),
+    "</b> are identified by the variables that model adjusted for.</p>",
+
+    "<p><b>Identified</b> means the adjustment closes every path that would ",
+    "make the two variables move together for a reason other than one ",
+    "affecting the other. <b>Not identified</b> means at least one such path ",
+    "is still open, or that something harmful was adjusted for.</p>",
+
+    "<p>Two adjustments do damage while looking like care. Conditioning on a ",
+    "variable that lies on the path from cause to effect removes part of the ",
+    "very effect being measured. Conditioning on a variable that the outcome ",
+    "causes opens a path that was closed, manufacturing an association out of ",
+    "nothing. In both cases the adjusted estimate is further from the truth ",
+    "than the unadjusted one.</p>",
+
+    "<p class='muted'>None of this is a statement about the data. It follows ",
+    "entirely from the diagram you supplied, and the data cannot confirm that ",
+    "diagram is right.</p></div>"
+  )
+
+}
+
+#' What every method reported for one relationship, before merging
+#'
+#' The headline numbers are a summary across methods. A summary the reader
+#' cannot open is something they have to take on trust, which is the opposite
+#' of what this report is for. Each finding therefore carries the individual
+#' results underneath it, plus a plain description of what each method does
+#' and what it cannot see.
+#'
+#' @noRd
+.html_result_contributions <- function(object, source, target) {
+
+  edge <- NULL
+
+  for (e in object$evidence) {
+    if (identical(e$source, source) && identical(e$target, target)) {
+      edge <- e
+      break
+    }
+  }
+
+  if (is.null(edge) || !is.data.frame(edge$contributions) ||
+      nrow(edge$contributions) == 0) {
+    return("")
+  }
+
+  contributions <- edge$contributions
+
+  display <- data.frame(
+    Method = contributions$method,
+    `Kind of evidence` = contributions$level_label,
+    `What it measured` = contributions$quantity,
+    `Combined` = ifelse(contributions$pooled, "yes", "no"),
+    Estimate = round(contributions$estimate, 4),
+    `95% CI` = ifelse(
+      is.finite(contributions$ci_lower) & is.finite(contributions$ci_upper),
+      sprintf("%.3f to %.3f", contributions$ci_lower, contributions$ci_upper),
+      "not reported"),
+    `p-value` = ifelse(is.finite(contributions$p_value),
+                       format.pval(contributions$p_value, digits = 2,
+                                   eps = 1e-16), "not reported"),
+    FDR = ifelse(is.finite(contributions$fdr),
+                 format.pval(contributions$fdr, digits = 2, eps = 1e-16),
+                 "not reported"),
+    Samples = contributions$n,
+    Agrees = ifelse(contributions$agrees, "yes", "no"),
+    check.names = FALSE,
+    stringsAsFactors = FALSE
+  )
+
+  methods_html <- paste0(vapply(unique(contributions$generator), function(g) {
+
+    info <- .method_explanation(g)
+
+    label <- contributions$method[contributions$generator == g][1]
+
+    paste0(
+      "<div class='explain'><h4>", .html_escape(label), "</h4>",
+      "<p>", .html_escape(info$what), "</p>",
+      if (nzchar(info$cannot))
+        paste0("<p><b>What it cannot tell you.</b> ",
+               .html_escape(info$cannot), "</p>") else "",
+      "</div>"
+    )
+
+  }, character(1)), collapse = "")
+
+  paste0(
+    "<details class='contrib'><summary>What each method found on its own</summary>",
+
+    "<p class='muted'>Each row is one method working alone, before anything ",
+    "was combined. The third column says what kind of number it is: a log ",
+    "hazard ratio and a drop in prediction accuracy are not the same ",
+    "measurement and cannot be averaged together. Only rows marked ",
+    "<b>combined</b> went into the headline estimate; the rest still count ",
+    "towards agreement, because two methods pointing the same way is ",
+    "informative even when their magnitudes are not.</p>",
+
+    if (!is.null(edge$quantity_label) && !is.na(edge$quantity_label))
+      paste0("<p class='muted'>Headline estimate: <b>",
+             .html_escape(edge$quantity_label), "</b>, pooled from ",
+             edge$pooled_from, " observation(s).",
+             if (length(edge$not_pooled) > 0)
+               paste0(" Left out: ",
+                      .html_escape(paste(edge$not_pooled, collapse = ", ")),
+                      ".") else "",
+             "</p>") else "",
+
+    .html_table(display),
+
+    "<h4 style='margin-top:16px'>What these methods are</h4>",
+    methods_html,
+
+    "</details>"
+  )
+
+}
+
+#' Say which part of a relationship was measured and which was filled in
+#'
+#' Rendered only when something behind the relationship was imputed. On a
+#' complete dataset it would be a row of reassurances, and a reader learns to
+#' skip a box that always says the same thing.
+#'
+#' @keywords internal
+#' @noRd
+.html_result_quality <- function(object, source, target) {
+
+  edge <- Filter(function(e) identical(e$source, source) &&
+                   identical(e$target, target), object$evidence)
+
+  if (length(edge) == 0) return("")
+
+  e <- edge[[1]]
+
+  if (length(e$quality_flags) == 0) return("")
+
+  reversed <- isFALSE(e$complete_case_agrees)
+
+  paste0(
+    "<div class='callout ", if (reversed) "danger" else "", "'>",
+
+    "<h4>", if (reversed)
+      "This finding does not survive without the filled-in values"
+    else "Part of this was filled in, not measured", "</h4>",
+
+    "<ul>", paste0("<li>", vapply(e$quality_flags, .html_escape,
+                                  character(1)), "</li>", collapse = ""),
+    "</ul>",
+
+    if (is.finite(e$data_quality) && e$data_quality < 1)
+      paste0("<p>The score for this relationship was scaled down to <b>",
+             .html_escape(sprintf("%.0f%%", 100 * e$data_quality)),
+             "</b> of what the statistics alone would give it",
+             if (!is.na(e$quality_limited_by))
+               paste0(", set by <b>", .html_escape(e$quality_limited_by),
+                      "</b>") else "",
+             ".</p>") else "",
+
+    if (is.finite(e$complete_case_estimate))
+      paste0(
+        "<p>Refitting on the <b>", e$complete_case_n,
+        "</b> people whose value was actually measured gives <b>",
+        .html_escape(format(round(e$complete_case_estimate, 4))),
+        "</b>, against <b>",
+        .html_escape(format(round(e$estimate, 4))),
+        "</b> overall. ",
+        if (reversed)
+          paste0("The direction reverses, which means the relationship shown ",
+                 "above is a product of how the gaps were filled rather than ",
+                 "of what was measured. Treat it as an artefact until you can ",
+                 "measure the missing values.")
+        else
+          paste0("Same direction, so this relationship is in the measured ",
+                 "data and not an artefact of the filling."),
+        "</p>") else "",
+
+    "</div>"
+  )
+
+}
+
+#' State what the supplied DAG says about one relationship
+#'
+#' Only ever rendered when the user supplied a causal structure. Without one
+#' the section would be a row of shrugs, and a reader would learn to skip it.
+#'
+#' @keywords internal
+#' @noRd
+.html_result_dag_verdict <- function(object, source, target) {
+
+  edge <- Filter(function(e) identical(e$source, source) &&
+                   identical(e$target, target), object$evidence)
+
+  if (length(edge) == 0) return("")
+
+  e <- edge[[1]]
+
+  if (is.null(e$identifiable) || is.na(e$identifiable)) return("")
+
+  ok <- isTRUE(e$identifiable)
+
+  missing <- setdiff(e$required_adjustment, e$adjustment_set)
+
+  paste0(
+    "<div class='callout ", if (ok) "good" else "danger", "'>",
+
+    "<h4>", if (ok) "Your causal diagram supports this estimate"
+    else "Your causal diagram does not support this estimate", "</h4>",
+
+    "<p>", .html_escape(.report_or(e$identification_reason, "")), "</p>",
+
+    if (length(e$adjustment_problems) > 0)
+      paste0("<ul>", paste0("<li>", vapply(e$adjustment_problems,
+                                           .html_escape, character(1)),
+                            "</li>", collapse = ""), "</ul>") else "",
+
+    if (length(missing) > 0)
+      paste0("<p>Adjusting also for <b>",
+             .html_escape(paste(missing, collapse = ", ")),
+             "</b> would close the remaining paths.</p>") else "",
+
+    "<p class='muted'>This verdict follows from the structure you supplied, ",
+    "not from the data. The data cannot confirm that structure.</p>",
+
+    "</div>"
+  )
+
+}
+
+#' Build HTML cards for key drivers found
+#'
+#' @keywords internal
+#' @noRd
+.html_result_findings <- function(object) {
+
+  drivers <- object$interpretation$drivers
+
+  if (!is.data.frame(drivers) || nrow(drivers) == 0) {
+
+    return(paste0(
+      "<section id='findings'><h2>", .result_text("findings_title"),
+      "</h2><p class='muted'>", .result_text("findings_none"), "</p></section>"
+    ))
+
+  }
+
+  cards <- paste0(vapply(seq_len(nrow(drivers)), function(i) {
+
+    row <- drivers[i, ]
+
+    paste0(
+      "<div class='finding'>",
+      "<div class='finding-head'>",
+      "<span class='finding-title'>",
+      .html_escape(.result_plain_direction(row$direction, row$source,
+                                            object$outcome$name,
+                                            .feature_encoding(object, row$source))),
+      "</span>",
+      "<span class='badge-id ", .result_identification_class(row$identification),
+      "'>", .html_escape(.result_identification_label(row$identification)),
+      "</span>",
+      "</div>",
+
+      .result_score_bar(row$evidence_score),
+
+      "<div class='finding-detail'>",
+      "<div><b>", .html_escape(fmt_num(row$strength, 2)), "</b>",
+      .result_text("strength_label"), "</div>",
+      "<div><b>", .html_escape(fmt_num(row$confidence, 2)), "</b>",
+      .result_text("confidence_label"), "</div>",
+      "<div><b>", .html_escape(fmt_num(row$consistency, 2)), "</b>",
+      .result_text("consistency_label"), "</div>",
+      "<div><b>", row$n_methods, "</b>method(s) agreed</div>",
+      "</div>",
+
+      "<p class='muted' style='margin-top:10px'>Found by: ",
+      .html_escape(row$methods), "</p>",
+
+      if (nzchar(row$conflicts))
+        paste0("<p class='muted'>Methods reporting the opposite direction: ",
+               .html_escape(row$conflicts), "</p>") else "",
+
+      .html_result_quality(object, row$source, object$outcome$name),
+
+      .html_result_dag_verdict(object, row$source, object$outcome$name),
+
+      .html_result_contributions(object, row$source, object$outcome$name),
+
+      "</div>"
+    )
+
+  }, character(1)), collapse = "")
+
+  paste0(
+    "<section id='findings'><h2>", .result_text("findings_title"), "</h2>",
+    "<p class='lead'>Relationships with <b>",
+    .html_escape(object$outcome$name), "</b>, strongest evidence first.</p>",
+    cards,
+    "</section>"
+  )
+
+}
+
+#' Build HTML list of top causal path chains
+#'
+#' @keywords internal
+#' @noRd
+.html_result_pathways <- function(object) {
+
+  paths <- object$causal_paths
+
+  if (!is.data.frame(paths) || nrow(paths) == 0) {
+
+    return(paste0(
+      "<section id='pathways'><h2>", .result_text("pathways_title"),
+      "</h2><p class='muted'>", .result_text("pathways_none"), "</p></section>"
+    ))
+
+  }
+
+  chains <- paste0(vapply(seq_len(min(nrow(paths), 10)), function(i) {
+
+    row <- paths[i, ]
+
+    paste0(
+      "<div class='chain'>",
+      "<div class='chain-path'>",
+      # Escape first, then swap in the arrow entity: escaping afterwards
+      # would turn the entity itself into visible text. The entity keeps the
+      # source ASCII, which R CMD check requires.
+      gsub("-&gt;", "&rarr;", .html_escape(row$path), fixed = TRUE),
+      "</div>",
+      .result_score_bar(row$weakest_link),
+      "<div class='chain-meta'>Passes through: ",
+      .html_escape(if (nzchar(row$mediators)) row$mediators else "nothing"),
+      " &middot; ", row$length, " step(s)</div>",
+      "</div>"
+    )
+
+  }, character(1)), collapse = "")
+
+  paste0(
+    "<section id='pathways'><h2>", .result_text("pathways_title"), "</h2>",
+    "<p class='lead'>", .html_escape(.result_text("pathways_intro")), "</p>",
+    chains,
+    "</section>"
+  )
+
+}
+
+#' Would this report look the same with a different set of people?
+#'
+#' The single most useful thing a reader can be told about a list of findings
+#' and the one a single drawing cannot convey. Per-relationship stability is
+#' already beside each finding; this is about the list as a list.
+#'
+#' @keywords internal
+#' @noRd
+.html_result_consensus <- function(object, plot_width, plot_height, plot_res) {
+
+  cg <- object$consensus
+
+  header <- "<section id='consensus'><h2>Would this repeat?</h2>"
+
+  if (is.null(cg) || .report_or(cg$replicates, 0) == 0) {
+
+    return(paste0(
+      header,
+      "<div class='callout'><h4>This was not checked</h4>",
+      "<p>Everything in this report comes from one set of people. Whether the ",
+      "same relationships would come out of a different set was not tested, ",
+      "because resampling was switched off.</p>",
+      "<p>Re-running with <code>effort = \"standard\"</code> or higher repeats ",
+      "the whole analysis on hundreds of resamples of the same data and ",
+      "reports how much of this picture survives.</p></div>",
+      "</section>"
+    ))
+
+  }
+
+  a <- cg$agreement
+
+  jaccard <- .report_or(a$jaccard, NA_real_)
+
+  verdict <- if (!is.finite(jaccard)) "could not be summarised"
+  else if (jaccard >= 0.8) "mostly the same list"
+  else if (jaccard >= 0.5) "a recognisable but shifting list"
+  else "a substantially different list"
+
+  figure <- if (!is.null(object$plots$consensus)) {
+
+    uri <- .html_plot_uri(object$plots$consensus, plot_width,
+                          max(plot_height, 520), plot_res)
+
+    if (is.null(uri)) "" else paste0(
+      "<figure><img loading='lazy' src='", uri,
+      "' alt='Rank of each relationship across resamples'><figcaption>",
+      "Each line runs from the best to the worst position a relationship ",
+      "reached across the resamples, with a dot at its usual position. A ",
+      "short line on the left would have been reported whoever was sampled. ",
+      "A long line means its place in this report depended on who was.",
+      "</figcaption></figure>")
+
+  } else ""
+
+  listing <- function(title, keys, explanation) {
+
+    if (length(keys) == 0) return("")
+
+    paste0("<h3>", title, "</h3><p class='muted'>", explanation, "</p>",
+           "<ul>",
+           paste0("<li>",
+                  vapply(utils::head(keys, 15),
+                         function(k) gsub("-&gt;", "&rarr;", .html_escape(k),
+                                          fixed = TRUE),
+                         character(1)),
+                  "</li>", collapse = ""),
+           if (length(keys) > 15)
+             paste0("<li>and ", length(keys) - 15, " more</li>") else "",
+           "</ul>")
+
+  }
+
+  size_note <- if (length(cg$sizes) > 0) {
+    sprintf(paste("Each resample produced between %d and %d relationships,",
+                  "against the %d reported here."),
+            min(cg$sizes), max(cg$sizes), a$reported)
+  } else ""
+
+  paste0(
+    header,
+
+    "<p class='lead'>The findings above come from the particular people who ",
+    "ended up in this study. To see how much that mattered, the entire ",
+    "analysis was run again on <b>", cg$replicates, "</b> resamples of the ",
+    "same data. What came back was <b>", verdict, "</b>.</p>",
+
+    "<div class='cards'>",
+    .html_card("Reported here", as.character(a$reported)),
+    .html_card("Recur reliably", as.character(a$consensus),
+               sprintf("in %.0f%% of resamples or more", 100 * cg$threshold)),
+    .html_card("In both", as.character(a$both)),
+    .html_card("Overlap", if (is.finite(jaccard))
+      sprintf("%.0f%%", 100 * jaccard) else "-",
+      "of the two lists combined"),
+    "</div>",
+
+    if (nzchar(size_note))
+      paste0("<p class='muted'>", .html_escape(size_note), "</p>") else "",
+
+    figure,
+
+    listing("Reported here, but rarely came back", a$reported_only,
+            paste("These made this report and then failed to reappear in most",
+                  "resamples. Treat them as the weakest thing in it.")),
+
+    listing("Came back reliably, but are not in this report", a$consensus_only,
+            paste("The opposite problem, and the one a reader cannot discover",
+                  "any other way: these recur across resamples but happened",
+                  "not to clear the threshold in the sample that was",
+                  "collected.")),
+
+    "<div class='callout'><h4>What this does and does not tell you</h4>",
+    "<p>A resample draws from the people who were actually measured, so this ",
+    "says how much the picture depends on which of them ended up in the ",
+    "study. It is not evidence that any relationship is real.</p>",
+    "<p>A variable with no connection to the outcome that happens to track it ",
+    "in this sample will track it in almost every resample of that sample ",
+    "too, and will look perfectly stable here. The question of whether these ",
+    "relationships exceed what the same analysis finds on noise is a ",
+    "different one, answered by null calibration at ",
+    "<code>effort = \"thorough\"</code>.</p></div>",
+
+    "</section>"
+  )
+
+}
+
+#' Build HTML network explanation with variable chips
+#'
+#' @keywords internal
+#' @noRd
+.html_result_network <- function(object, plot_width, plot_height, plot_res) {
+
+  interpretation <- object$interpretation
+
+  listing <- function(label, values, explanation) {
+
+    if (length(values) == 0) return("")
+
+    paste0(
+      "<div class='explain'><h4>", label, "</h4>",
+      "<p>", .html_escape(explanation), "</p>",
+      "<div class='chiprow'>",
+      paste0("<span class='chip'>", .html_escape(utils::head(values, 8)),
+             "</span>", collapse = ""),
+      "</div></div>"
+    )
+
+  }
+
+  # The circular figures come first: they are the only ones that show every
+  # layer, its size and the traffic between layers in a single view.
+
+  panel <- function(plot, caption, square = FALSE) {
+
+    if (is.null(plot)) return("")
+
+    uri <- .html_plot_uri(
+      plot,
+      if (square) max(plot_width, plot_height) else plot_width,
+      if (square) max(plot_width, plot_height) else plot_height,
+      plot_res
+    )
+
+    if (is.null(uri)) return("")
+
+    paste0("<figure><img loading='lazy' src='", uri, "' alt='",
+           .html_escape(caption), "'><figcaption>", caption,
+           "</figcaption></figure>")
+
+  }
+
+  figure <- paste0(
+
+    panel(object$plots$circos_blocks,
+          paste("Each arc is one kind of measurement, sized by how much of the",
+                "evidence it carries. Each ribbon is the evidence running",
+                "between two of them."),
+          square = TRUE),
+
+    panel(object$plots$circos,
+          paste("The same picture with every individual variable shown as a",
+                "tick inside its arc, and every relationship as a thread.",
+                "Thicker threads carry more evidence."),
+          square = TRUE),
+
+    panel(object$plots$network,
+          "Every arrow is a relationship. Thicker arrows carry more evidence.")
+
+  )
+
+  paste0(
+    "<section id='network'><h2>", .result_text("network_title"), "</h2>",
+    "<p class='lead'>", .html_escape(.result_text("network_intro")), "</p>",
+    figure,
+
+    listing("Hubs", interpretation$hubs,
+            "Connected to many other variables, so a change here is likely to be felt widely."),
+
+    listing("Bridges", interpretation$bridges,
+            "Sit between two different kinds of measurement and link them together."),
+
+    listing("In the middle of a chain", interpretation$mediators,
+            "Appear between a starting variable and the outcome, which is what a mechanism looks like."),
+
+    listing("Associated with a higher outcome", interpretation$risk,
+            "When these go up, the outcome tends to go up."),
+
+    listing("Associated with a lower outcome", interpretation$protective,
+            "When these go up, the outcome tends to go down."),
+
+    .html_result_blocks(object),
+
+    "</section>"
+  )
+
+}
+
+#' The same result read one measurement layer at a time
+#'
+#' A hundred variable-to-variable relationships are hard to hold in the head.
+#' "The microbiome contributes two thirds of the evidence, and most of it runs
+#' to the metabolome" is not, and it is usually the question that was being
+#' asked in the first place.
+#'
+#' @noRd
+.html_result_blocks <- function(object) {
+
+  blocks <- object$network$blocks
+
+  if (is.null(blocks) || !is.data.frame(blocks$importance) ||
+      nrow(blocks$importance) == 0) {
+    return("")
+  }
+
+  importance <- blocks$importance
+
+  bars <- paste0(vapply(seq_len(nrow(importance)), function(i) {
+
+    row <- importance[i, ]
+
+    paste0(
+      "<div class='blockrow'>",
+      "<div class='blockname'>", .html_escape(row$block), "</div>",
+      "<div class='blockbar'><div class='blockfill' style='width:",
+      max(row$share_percent, 0.5), "%'></div></div>",
+      "<div class='blockpct'>", sprintf("%.1f%%", row$share_percent), "</div>",
+      "<div class='blockmeta'>", row$features_analysed, " variables &middot; ",
+      row$relationships, " relationships &middot; ",
+      row$direct_to_outcome, " reaching the outcome</div>",
+      "</div>"
+    )
+
+  }, character(1)), collapse = "")
+
+  between <- if (is.data.frame(blocks$evidence) && nrow(blocks$evidence) > 0) {
+
+    display <- blocks$evidence[
+      blocks$evidence$from != blocks$evidence$to, , drop = FALSE]
+
+    if (nrow(display) == 0) "" else {
+
+      names_map <- c(from = "From", to = "To",
+                     relationships = "Relationships",
+                     mean_score = "Average evidence",
+                     highest_level = "Strongest kind of evidence")
+
+      display <- display[, names(names_map), drop = FALSE]
+      names(display) <- unname(names_map)
+
+      paste0("<h3>What runs between the layers</h3>",
+             "<p class='muted'>Relationships inside a single layer are left ",
+             "out here: two proteins moving together usually reflects them ",
+             "being part of the same process, not one acting on the other.</p>",
+             .html_table(display))
+
+    }
+
+  } else ""
+
+  communities <- if (is.data.frame(blocks$communities) &&
+                     nrow(blocks$communities) > 0) {
+
+    display <- blocks$communities[, c("size", "composition", "kind"),
+                                  drop = FALSE]
+    names(display) <- c("Variables", "Made up of", "Reading")
+
+    paste0("<h3>The groups it found</h3>",
+           "<p class='muted'>The map splits into clusters of variables more ",
+           "connected to each other than to the rest. A cluster spanning ",
+           "several layers is the interesting case; one confined to a single ",
+           "layer usually reflects how that layer was measured.</p>",
+           .html_table(display))
+
+  } else ""
+
+  paste0(
+    "<h3>Which layer carries the result</h3>",
+    "<p class='muted'>A relationship between two layers belongs to both, so ",
+    "its weight is split between them. These add to 100%.</p>",
+    "<div class='blocklist'>", bars, "</div>",
+    between,
+    communities
+  )
+
+}
+
+#' Build HTML section with consensus importance plot
+#'
+#' @keywords internal
+#' @noRd
+.html_result_importance <- function(object, plot_width, plot_height, plot_res) {
+
+  importance <- object$importance
+
+  figure <- ""
+
+  if (!is.null(object$plots$importance)) {
+
+    uri <- .html_plot_uri(object$plots$importance, plot_width, plot_height,
+                          plot_res)
+
+    if (!is.null(uri)) {
+      figure <- paste0("<figure><img loading='lazy' src='", uri,
+                       "' alt='Consensus importance'></figure>")
+    }
+
+  }
+
+  table_html <- if (is.data.frame(importance) && nrow(importance) > 0) {
+
+    display <- utils::head(importance, 20)
+    names(display) <- c("Variable", "Measurement type", "Methods that ranked it",
+                        "Combined ranking")
+
+    .html_table(display)
+
+  } else "<p class='muted'>No importance ranking was produced.</p>"
+
+  paste0(
+    "<section id='importance'><h2>", .result_text("importance_title"), "</h2>",
+    "<p class='lead'>", .html_escape(.result_text("importance_intro")), "</p>",
+    figure,
+    table_html,
+    "</section>"
+  )
+
+}
+
+#' Build HTML table summarizing methods and skipped models
+#'
+#' @keywords internal
+#' @noRd
+.html_result_methods <- function(object) {
+
+  models <- object$models
+
+  rows <- if (length(models) > 0) {
+
+    do.call(rbind, lapply(names(models), function(nm) {
+      data.frame(
+        Method = models[[nm]]$label,
+        `Relationships reported` = models[[nm]]$n_edges,
+        check.names = FALSE,
+        stringsAsFactors = FALSE
+      )
+    }))
+
+  } else data.frame()
+
+  skipped <- grep("skipped|failed", object$logs, value = TRUE)
+
+  paste0(
+    "<section id='methods'><h2>", .result_text("methods_title"), "</h2>",
+    "<p class='lead'>", .html_escape(.result_text("methods_intro")), "</p>",
+    .html_table(rows),
+
+    if (length(skipped) > 0)
+      paste0("<h3>Not run</h3>", .html_list(skipped)) else "",
+
+    "<h3>Study design</h3>",
+    "<p>The data was treated as <b>", .html_escape(object$design$type),
+    "</b>.</p>",
+    if (length(object$design$notes) > 0) .html_list(object$design$notes) else "",
+
+    "</section>"
+  )
+
+}
+
+#' Build HTML summary of sample and variable screening
+#'
+#' @keywords internal
+#' @noRd
+.html_result_data <- function(object) {
+
+  screening <- object$data$screening
+
+  cards <- paste0(
+    .html_card("Samples analysed", length(object$data$samples)),
+    .html_card("Samples set aside", length(object$data$dropped_samples),
+               "not measured in every block"),
+    .html_card("Variables examined", screening$retained,
+               paste0("of ", screening$tested, " available"))
+  )
+
+  paste0(
+    "<section id='data'><h2>", .result_text("data_title"), "</h2>",
+    "<div class='cards'>", cards, "</div>",
+
+    if (length(object$data$dropped_samples) > 0)
+      paste0("<p class='muted'>Only samples present in every block can be ",
+             "compared across blocks, so ", length(object$data$dropped_samples),
+             " were set aside.</p>") else "",
+
+    if (isTRUE(screening$screened))
+      paste0("<div class='callout'><h4>Not everything was examined</h4><p>",
+             "There were too many variables to test every possible pair, so ",
+             screening$retained, " were carried forward on the strength of ",
+             "their relationship with the outcome. The remaining ",
+             screening$tested - screening$retained,
+             " were not examined for indirect roles and could still matter.",
+             "</p></div>") else "",
+
+    "</section>"
+  )
+
+}
+#' What the results imply about changing something
+#'
+#' Only rendered when the user has declared which variables could plausibly be
+#' acted on. That declaration is the point: without it the section would put a
+#' contrast for a genotype next to one for a diet, and a reader would take
+#' both the same way.
+#'
+#' @noRd
+.html_result_actionable <- function(object) {
+
+  modifiable <- object$parameters$modifiable
+
+  if (length(modifiable) == 0) return("")
+
+  cf <- .safe_try(counterfactual(object, modifiable = modifiable), NULL)
+
+  if (is.null(cf) || nrow(cf$table) == 0) {
+
+    return(paste0(
+      "<section id='actionable'><h2>What changing something would mean</h2>",
+      "<p class='muted'>No relationship among the variables you marked as ",
+      "changeable could be expressed in its original units.</p>",
+      if (length(.report_or(cf$skipped, character(0))) > 0)
+        .html_list(cf$skipped) else "",
+      "</section>"
+    ))
+
+  }
+
+  cards <- paste0(vapply(cf$statements, function(s) {
+
+    row <- cf$table[cf$table$variable == s$variable, ][1, ]
+
+    tone <- if (is.finite(row$percent_change) && row$percent_change < 0)
+      "strong" else "medium"
+
+    paste0(
+      "<div class='finding'>",
+      "<div class='finding-head'>",
+      "<span class='finding-title'>", .html_escape(s$sentence), "</span>",
+      "<span class='badge-id ", .result_identification_class(s$identification),
+      "'>", .html_escape(.result_identification_label(s$identification)),
+      "</span></div>",
+
+      "<div class='finding-detail'>",
+      "<div><b>", .html_escape(format(row$from)), "</b>starting value</div>",
+      "<div><b>", .html_escape(format(row$to)), "</b>changed to</div>",
+      "<div><b>", .html_escape(format(row$value)), "</b>",
+      .html_escape(row$measure), "</div>",
+      "<div><b>", .html_escape(sprintf("%.0f", s$evidence_score)),
+      "</b>evidence score</div>",
+      "</div>",
+
+      if (is.finite(row$ci_lower))
+        paste0("<p class='muted' style='margin-top:8px'>Range compatible with ",
+               "the data: ", .html_escape(format(row$ci_lower)), " to ",
+               .html_escape(format(row$ci_upper)), "</p>") else "",
+
+      "<p class='muted'>Estimated by: ", .html_escape(row$method), "</p>",
+
+      "<div class='callout' style='margin:10px 0 0'>",
+      "<p>", .html_escape(s$caveat), "</p></div>",
+
+      "</div>"
+    )
+
+  }, character(1)), collapse = "")
+
+  baseline_note <- if (is.finite(.report_or(cf$baseline_risk, NA))) {
+    sprintf(paste("In this group %.1f%% of people had the event. Percentages",
+                  "below are changes relative to that."),
+            100 * cf$baseline_risk)
+  } else ""
+
+  paste0(
+    "<section id='actionable'><h2>What changing something would mean</h2>",
+
+    "<p class='lead'>These are the relationships involving the variables you ",
+    "marked as things that could plausibly be changed. Each is expressed in ",
+    "the units the variable was measured in.</p>",
+
+    "<div class='callout danger'><h4>Read this before the numbers</h4>",
+    "<p>These are contrasts implied by the fitted models: they describe how ",
+    "the outcome differs between people whose measurements differ by this ",
+    "much. That is not the same as what would happen if you changed the ",
+    "variable in one person.</p>",
+    "<p>The two coincide only when the effect is identified, which for data ",
+    "collected by observation it usually is not. Each statement below says ",
+    "which case it is, and none of them says a change would cause anything ",
+    "unless the evidence supports that word.</p></div>",
+
+    if (nzchar(baseline_note))
+      paste0("<p class='muted'>", .html_escape(baseline_note), "</p>") else "",
+
+    cards,
+
+    "<h3>All of them together</h3>",
+    .html_table(cf$table[, c("variable", "block", "from", "to", "measure",
+                             "value", "percent_change", "method",
+                             "identification")]),
+
+    if (length(cf$skipped) > 0)
+      paste0("<h3>Left out</h3>", .html_list(cf$skipped)) else "",
+
+    "<p class='muted'>Variables not marked as changeable were not considered ",
+    "at all. A contrast for something nobody can act on, such as a genotype, ",
+    "invites a reading that nothing in the data can support.</p>",
+
+    "</section>"
+  )
+
+}
+
+#' Explain every quantity the report puts in front of the reader
+#'
+#' A number with no provenance is worse than no number: it carries the
+#' authority of precision without the means to judge it. This section names
+#' every quantity that appears anywhere in the document, says how it was
+#' produced, and says what it does not mean.
+#'
+#' @noRd
+.html_result_provenance <- function(object) {
+
+  quantities <- paste0(vapply(.quantity_explanations(), function(q) {
+
+    paste0(
+      "<div class='provcard'>",
+      "<div class='provhead'><b>", .html_escape(q$term), "</b>",
+      "<span class='provrange'>", .html_escape(q$short), "</span></div>",
+      "<p>", .html_escape(q$what), "</p>",
+      "<p class='provwatch'><b>Careful.</b> ", .html_escape(q$watch), "</p>",
+      "</div>"
+    )
+
+  }, character(1)), collapse = "")
+
+  # Which methods actually ran here, rather than the whole catalogue.
+  used <- unique(unlist(lapply(object$evidence, function(e)
+    if (is.data.frame(e$contributions) && nrow(e$contributions) > 0)
+      e$contributions$generator else character(0))))
+
+  if (length(used) == 0) used <- names(object$models)
+
+  methods_html <- if (length(used) == 0) "" else paste0(
+    vapply(used, function(g) {
+
+      info <- .method_explanation(g)
+
+      label <- object$models[[g]]$label
+      if (is.null(label)) label <- g
+
+      paste0(
+        "<div class='provcard'>",
+        "<div class='provhead'><b>", .html_escape(label), "</b>",
+        "<span class='provrange'>level ", .evidence_level(g), ", ",
+        .html_escape(.level_label(.evidence_level(g))), "</span></div>",
+        "<p>", .html_escape(info$what), "</p>",
+        if (nzchar(info$cannot))
+          paste0("<p class='provwatch'><b>What it cannot tell you.</b> ",
+                 .html_escape(info$cannot), "</p>") else "",
+        "</div>"
+      )
+
+    }, character(1)), collapse = "")
+
+  paste0(
+    "<section id='provenance'><h2>Where these numbers come from</h2>",
+
+    "<p class='lead'>Every quantity in this report is listed here with how it ",
+    "was produced. If a number anywhere in the document is unclear, it is ",
+    "explained below.</p>",
+
+    "<h3>The path from your data to these results</h3>",
+
+    "<pre class='flow'><code>your measurements
+      |
+      v
+  checked for problems, then cleaned following a written plan
+      |
+      v
+  ", length(used), " statistical methods, each run separately on the same data
+      |
+      v
+  each reports the relationships it found, on its own scale
+      |
+      v
+  results describing the same relationship are merged into one
+      |
+      v
+  the merged relationship is scored, and labelled with how much
+  can be claimed about cause
+      |
+      v
+  what you are reading</code></pre>",
+
+    "<h3>The methods behind these results</h3>",
+
+    "<p>Each looks at the data differently, which is the point: agreement ",
+    "between methods that share no assumptions says more than one method ",
+    "repeated. Each carries a level describing what kind of claim it can ",
+    "support, and agreement is weighted by that level rather than counted.</p>",
+
+    "<div class='provgrid'>", methods_html, "</div>",
+
+    "<h3>Every quantity, explained</h3>",
+
+    "<div class='provgrid'>", quantities, "</div>",
+
+    "<h3>Where to find the raw numbers</h3>",
+
+    "<p>Nothing here is hidden. In R, on the object this report was built ",
+    "from:</p>",
+
+    "<pre><code>result$evidence[[1]]$contributions   # what every method said
+result$effects                       # the same, for every relationship
+result$tables$evidence               # the merged and scored relationships
+result$diagnostics                   # model fit, resampling, calibration
+explain(result, \"NAME\")              # everything known about one variable</code></pre>",
+
+    "</section>"
+  )
+
+}
+
+
+#' Build HTML glossary and limitations section
+#'
+#' @keywords internal
+#' @noRd
+.html_result_limitations <- function(object) {
+
+  glossary <- c(
+    "Outcome" = "The thing the analysis is trying to explain.",
+    "Variable" = "Anything that was measured.",
+    "Relationship" = "Two variables that change together in a way unlikely to be chance alone.",
+    "Evidence score" = "A 0-100 summary combining size, precision and agreement.",
+    "Adjusted" = "Other known factors were subtracted out before measuring the relationship.",
+    "Confounder" = "Something not measured that drives two variables at once, making them look related.",
+    "Mediator" = "A variable that sits between a cause and its outcome.",
+    "Hub" = "A variable connected to many others."
+  )
+
+  glossary_html <- paste0(
+    "<dl class='glossary'>",
+    paste0("<dt>", .html_escape(names(glossary)), "</dt><dd>",
+           .html_escape(unname(glossary)), "</dd>", collapse = ""),
+    "</dl>"
+  )
+
+  paste0(
+    "<section id='limitations'><h2>", .result_text("limitations_title"), "</h2>",
+    "<p class='lead'>", .html_escape(.result_text("limitations_intro")), "</p>",
+    .html_list(object$report$limitations, "warn"),
+
+    "<h3>", .result_text("glossary_title"), "</h3>",
+    glossary_html,
+
+    "</section>"
+  )
+
+}
+
+#' Build HTML technical tables and supporting figures
+#'
+#' @keywords internal
+#' @noRd
+.html_result_technical <- function(object, plot_width, plot_height, plot_res) {
+
+  tables <- object$tables
+
+  panels <- paste0(vapply(names(tables), function(nm) {
+
+    paste0("<details class='blockdetail'><summary>",
+           .html_escape(gsub("_", " ", nm)), "</summary>",
+           .html_table(tables[[nm]]), "</details>")
+
+  }, character(1)), collapse = "")
+
+  figures <- character(0)
+
+  for (nm in names(object$plots)) {
+
+    # Already shown, full width, in the section about the overall picture.
+    if (nm %in% c("network", "circos", "circos_blocks")) next
+
+    uri <- .html_plot_uri(object$plots[[nm]], plot_width, plot_height, plot_res)
+
+    if (is.null(uri)) next
+
+    figures <- c(figures, paste0(
+      "<figure><img loading='lazy' src='", uri, "' alt='",
+      .html_escape(nm), "'><figcaption>",
+      .html_escape(gsub("_", " ", nm)), "</figcaption></figure>"
+    ))
+
+  }
+
+  paste0(
+    "<section id='technical'><h2>", .result_text("technical_title"), "</h2>",
+    "<p class='lead'>", .html_escape(.result_text("technical_intro")), "</p>",
+
+    if (length(figures) > 0)
+      paste0("<div class='gallery'>", paste(figures, collapse = ""), "</div>")
+    else "",
+
+    panels,
+    "</section>"
+  )
+
+}
+
+# -----------------------------------------------------------------------------
+# Document assembly
+# -----------------------------------------------------------------------------
+
+#' Assemble full HTML analysis result report
+#'
+#' @keywords internal
+#' @noRd
+.report_html_result <- function(object,
+                                audience = "general",
+                                plot_width = 900,
+                                plot_height = 560,
+                                plot_res = 110,
+                                title = "CausalMultiOmics analysis report") {
+
+  parts <- list(
+    overview = .html_result_overview(object),
+    howto = .html_result_howto(object),
+    findings = .html_result_findings(object),
+    actionable = .html_result_actionable(object),
+    pathways = .html_result_pathways(object),
+    consensus = .html_result_consensus(object, plot_width, plot_height,
+                                       plot_res),
+    network = .html_result_network(object, plot_width, plot_height, plot_res),
+    importance = .html_result_importance(object, plot_width, plot_height, plot_res),
+    methods = .html_result_methods(object),
+    provenance = .html_result_provenance(object),
+    data = .html_result_data(object),
+    limitations = .html_result_limitations(object)
+  )
+
+  if (identical(audience, "technical")) {
+
+    parts$technical <- .html_result_technical(
+      object, plot_width, plot_height, plot_res
+    )
+
+  }
+
+  labels <- c(
+    overview = "Summary", howto = "How to read this", findings = "Findings",
+    actionable = "What to change", pathways = "Chains",
+    consensus = "Would this repeat?",
+    network = "The big picture",
+    importance = "What matters most", methods = "How it was done",
+    provenance = "Where the numbers come from",
+    data = "Data used", limitations = "Limitations",
+    technical = "Technical detail"
+  )
+
+  nav <- paste0(
+    vapply(seq_along(parts), function(i) {
+      id <- names(parts)[i]
+      paste0("<button class='", if (i == 1L) "active" else "",
+             "' onclick=\"cmoShow('", id, "',this)\">",
+             .html_escape(labels[[id]]), "</button>")
+    }, character(1)),
+    collapse = ""
+  )
+
+  generated <- format(
+    if (!is.null(object$timestamp)) object$timestamp else Sys.time(),
+    "%Y-%m-%d %H:%M:%S"
+  )
+
+  paste0(
+    "<!DOCTYPE html>\n<html lang='en'><head><meta charset='utf-8'>",
+    "<meta name='viewport' content='width=device-width,initial-scale=1'>",
+    "<title>", .html_escape(title), "</title>",
+    .html_style(),
+    .result_style(),
+    "</head><body>",
+
+    "<header><h1>", .html_escape(title), "</h1>",
+    "<div class='sub'>Outcome: <b>",
+    .html_escape(.report_or(object$outcome$name, "-")),
+    "</b> &middot; generated ", .html_escape(generated),
+    "</div><nav>", nav, "</nav></header>",
+
+    "<main>", paste(unlist(parts), collapse = ""), "</main>",
+
+    "<div id='lightbox'><img alt='Enlarged figure'></div>",
+
+    "<footer>Produced by CausalMultiOmics. This file is self-contained: ",
+    "no internet connection is needed to read it.</footer>",
+
+    .html_script(),
+    "</body></html>"
+  )
+
+}
+
+# -----------------------------------------------------------------------------
+# report.CMOResult()
+# -----------------------------------------------------------------------------
+
+#' Readable report for an analysis result
+#'
+#' Turns a \code{CMOResult} into a self-contained HTML document written for a
+#' reader who is not a statistician: findings first, in plain language, with
+#' the technical tables tucked behind \code{audience = "technical"}.
+#'
+#' The report states throughout what the numbers do and do not support. A
+#' reader who does not know what an adjusted association is will otherwise
+#' read a high score as proof of cause, so every finding carries a plain
+#' label for how much can be claimed, and the reasoning behind that label is
+#' explained in its own section rather than buried in a footnote.
+#'
+#' @param object A \code{CMOResult} object.
+#' @param file Destination path for the HTML report. May be a file name or a
+#'   directory. When \code{NULL} the user is prompted in an interactive
+#'   session and the working directory is used otherwise.
+#' @param format Either \code{"html"} (the default) or \code{"console"} for a
+#'   plain-text summary.
+#' @param audience \code{"general"} (the default) writes for a non-specialist
+#'   reader. \code{"technical"} adds a section with the complete tables and
+#'   every diagnostic figure.
+#' @param open Whether to open the saved report in a browser.
+#' @param prompt Whether to ask for a destination when \code{file} is
+#'   \code{NULL}. Set to \code{FALSE} for unattended scripts.
+#' @param plot_width,plot_height,plot_res Pixel dimensions and resolution used
+#'   when rasterizing the stored plots into the document.
+#' @param quiet Whether to suppress progress messages.
+#' @param ... Ignored.
+#'
+#' @return The analysis object, invisibly.
+#'
+#' @seealso \code{\link{analyze}}
+#'
+#' @exportS3Method report CMOResult
+
+report.CMOResult <- function(object,
+                             file = NULL,
+                             format = c("html", "console"),
+                             audience = c("general", "technical"),
+                             open = interactive(),
+                             prompt = TRUE,
+                             plot_width = 900,
+                             plot_height = 560,
+                             plot_res = 110,
+                             quiet = FALSE,
+                             ...) {
+
+  format <- match.arg(format)
+  audience <- match.arg(audience)
+
+  # ===========================================================================
+  # Console output
+  # ===========================================================================
+
+  if (identical(format, "console")) {
+
+    width <- 78
+
+    .report_title("CausalMultiOmics - Analysis Report", width)
+
+    cat("\n")
+    cat(sprintf("  %-20s %s\n", "Outcome", .report_or(object$outcome$name, "-")))
+    cat(sprintf("  %-20s %s\n", "Design", .report_or(object$design$type, "-")))
+    cat(sprintf("  %-20s %s\n", "Samples",
+                fmt_num(object$performance$samples, 0)))
+    cat(sprintf("  %-20s %s\n", "Relationships",
+                fmt_num(object$performance$edges_integrated, 0)))
+
+    .report_section("What was found", width)
+    .report_bullets(object$interpretation$statements, width = width)
+
+    .report_section("Strongest relationships", width)
+
+    drivers <- object$interpretation$drivers
+
+    if (is.data.frame(drivers) && nrow(drivers) > 0) {
+
+      for (i in seq_len(nrow(drivers))) {
+
+        row <- drivers[i, ]
+
+        cat(sprintf(
+          "  %-52s %5.1f  %s\n",
+          .result_plain_direction(row$direction, row$source,
+                                   object$outcome$name,
+                                   .feature_encoding(object, row$source)),
+          row$evidence_score,
+          .result_identification_label(row$identification)
+        ))
+
+      }
+
+    } else {
+
+      cat("  ", .result_text("findings_none"), "\n", sep = "")
+
+    }
+
+    if (nrow(object$causal_paths) > 0) {
+
+      .report_section("Chains", width)
+
+      for (i in seq_len(min(5, nrow(object$causal_paths)))) {
+        cat(sprintf("  %-58s %5.1f\n",
+                    object$causal_paths$path[i],
+                    object$causal_paths$weakest_link[i]))
+      }
+
+    }
+
+    .report_section("Limitations", width)
+    .report_bullets(object$report$limitations, width = width)
+
+    cat("\n")
+    .report_rule(width, "=")
+    cat("\n")
+
+    return(invisible(object))
+
+  }
+
+  # ===========================================================================
+  # HTML output
+  # ===========================================================================
+
+  path <- .report_destination(
+    file = file, prompt = prompt,
+    default_name = "CausalMultiOmics_analysis_report.html"
+  )
+
+  if (!isTRUE(quiet)) cat("Building HTML report...\n")
+
+  html <- .report_html_result(
+    object,
+    audience = audience,
+    plot_width = plot_width,
+    plot_height = plot_height,
+    plot_res = plot_res
+  )
+
+  con <- file(path, open = "wb")
+  on.exit(close(con), add = TRUE)
+  writeBin(charToRaw(html), con)
+
+  if (!isTRUE(quiet)) {
+
+    cat(sprintf("Report saved to: %s\n", path))
+    cat(sprintf("Size: %.1f KB\n", file.size(path) / 1024))
+
+  }
+
+  if (isTRUE(open)) try(utils::browseURL(path), silent = TRUE)
+
+  attr(object, "report_path") <- path
+
+  invisible(object)
+
+}

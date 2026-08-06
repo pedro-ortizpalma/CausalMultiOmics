@@ -1,0 +1,67 @@
+# =============================================================================
+# CausalMultiOmics-package.R
+# Package-level documentation
+# =============================================================================
+
+#' CausalMultiOmics: Interpretable Causal Analysis of Multi-Block Omics Data
+#'
+#' Turns complex multi-block datasets into a quantified, interpretable account
+#' of the mechanisms leading to a phenotype or clinical event. The workflow is
+#' four steps, each producing an object that records every decision it took.
+#'
+#' @section The workflow:
+#'
+#' \preformatted{
+#'   load_data()      MultiOmicsData        blocks plus sample metadata
+#'        |
+#'   check_data()     CMOValidation         audit, diagnostics, recipes
+#'        |
+#'   preprocess()     PreprocessingResult   the plan, executed and recorded
+#'        |
+#'   analyze()        CMOResult             integrated evidence graph
+#' }
+#'
+#' Each step consumes the object the previous one produced. Nothing is
+#' modified in place, and no step re-derives a decision an earlier one already
+#' made: \code{preprocess()} executes the recipes \code{check_data()} wrote,
+#' and \code{analyze()} starts from a preprocessing plan that is already
+#' fixed.
+#'
+#' @section What the result is:
+#'
+#' \code{analyze()} does not return a model. It runs many analysis methods,
+#' collects the relationships each reports, and integrates them into one
+#' scored directed graph of evidence, from which mechanisms, mediators, hubs
+#' and candidate biomarkers are extracted.
+#'
+#' Three scores are reported per relationship and they measure different
+#' things: \strong{strength} is how large the effect is, \strong{confidence}
+#' is how precisely it was estimated, and \strong{consistency} is how many
+#' methods agreed on its direction.
+#'
+#' @section On causal language:
+#'
+#' Consistency between methods is not validity. Methods that share an
+#' unmeasured confounder agree with one another while all being biased in the
+#' same direction, so agreement is evidence of stability and nothing more.
+#'
+#' Every edge therefore carries an \code{identification} strategy — the
+#' reason, if any, that would license reading it causally — together with the
+#' assumptions that would have to hold. An edge identified as \code{"none"}
+#' or \code{"adjustment"} is an association, however high it scores. This is
+#' deliberate: the package is designed so that an over-claim is structurally
+#' hard to make rather than merely discouraged in the documentation.
+#'
+#' @section Reproducibility:
+#'
+#' Every stage stores the fitted model that produced it, so
+#' \code{apply_preprocessing()} can replay a pipeline on an external cohort
+#' without re-deriving a single decision from it. Seeds, package versions,
+#' runtimes and parameters are recorded in each result object, and no
+#' function moves the caller's random number generator.
+#'
+#' @seealso \code{\link{load_data}}, \code{\link{check_data}},
+#'   \code{\link{preprocess}}, \code{\link{analyze}}, \code{\link{report}}
+#'
+#' @keywords internal
+"_PACKAGE"

@@ -90,7 +90,7 @@ validation
 #> =============
 #> 
 #> Status:                        VALID
-#> Quality score:                 98.84
+#> Quality score:                 99.28
 #> Blocks:                        2
 #> Samples:                       20
 #> Features:                      5
@@ -111,6 +111,106 @@ validation$transformations$proteomics$recommended
 
 validation$recipes$proteomics$imputation
 #> [1] "none"
+```
+
+`preprocess()` executes that plan and records every step, so the
+pipeline can be replayed on a second cohort with
+`apply_preprocessing()`.
+
+``` r
+clean <- preprocess(omics, validation, plots = FALSE, quiet = TRUE)
+
+clean
+#> 
+#> PreprocessingResult
+#> ===================
+#> 
+#> Blocks:                        2
+#> Recipes:                       2
+#> Steps executed:                11
+#> Removed samples:               0
+#> Removed features:              0
+#> Plots:                         0
+#> Runtime:                       0.03 s
+```
+
+## Building evidence
+
+`analyze()` does not fit a model and hand it back. It runs every
+applicable method, collects the relationships each one reports, and
+merges them into a single scored graph.
+
+``` r
+results <- analyze(clean, outcome = "group", effort = "fast",
+                   plots = FALSE, quiet = TRUE)
+
+results
+#> 
+#> CMOResult
+#> =========
+#> 
+#> Outcome:                       group
+#> Design:                        cross-sectional
+#> Samples:                       18
+#> Features analysed:             5 of 5
+#> 
+#> Methods run:                   7
+#> Relationships found:           7
+#> After integration:             7
+#> With temporal precedence:      0
+#> 
+#> Causal paths:                  2
+#> Plots:                         0
+#> Tables:                        15
+#> Runtime:                       0.96 s
+```
+
+Every relationship carries the identification strategy that would
+license reading it causally, and the assumptions that would have to
+hold. An edge identified as `"adjustment"` is an association however
+high it scores.
+
+``` r
+results$graph$edges[, c("source", "target", "level_label",
+                        "identification", "evidence_score")]
+#>   source target   level_label identification evidence_score
+#> 1     P1     P2 associational     adjustment          29.18
+#> 2     G1     G3 associational     adjustment          13.39
+#> 3     G2  group associational           none          10.87
+#> 4     P1  group associational           none           5.60
+#> 5     P2  group associational           none           5.39
+#> 6     G3  group associational           none           3.09
+#> 7     G1  group associational           none           2.69
+```
+
+`explain()` gathers everything known about one variable, including what
+each method reported on its own before anything was merged.
+
+``` r
+explain(results, "P1")
+```
+
+`counterfactual()` states the findings in the units the variable was
+measured in. Nothing is included unless you name it as something that
+could plausibly be changed — a contrast for a genotype is arithmetic
+without meaning.
+
+``` r
+counterfactual(results, modifiable = "proteomics")
+```
+
+Prior biological knowledge can be attached with `annotate_evidence()`.
+It is reported beside the score and never folded into it, so a
+relationship nobody has published yet is not penalised for being new. It
+takes a local export rather than a live query, which keeps the analysis
+offline, deterministic and independent of a database version the result
+could not record.
+
+``` r
+known <- data.frame(source = "P1", target = "M1",
+                    support = 0.9, database = "local STRING export")
+
+annotate_evidence(results, known)
 ```
 
 ## Reading the results

@@ -98,6 +98,65 @@ validation$transformations$proteomics$recommended
 validation$recipes$proteomics$imputation
 ```
 
+`preprocess()` executes that plan and records every step, so the pipeline can
+be replayed on a second cohort with `apply_preprocessing()`.
+
+```{r preprocess}
+clean <- preprocess(omics, validation, plots = FALSE, quiet = TRUE)
+
+clean
+```
+
+## Building evidence
+
+`analyze()` does not fit a model and hand it back. It runs every applicable
+method, collects the relationships each one reports, and merges them into a
+single scored graph.
+
+```{r analyze}
+results <- analyze(clean, outcome = "group", effort = "fast",
+                   plots = FALSE, quiet = TRUE)
+
+results
+```
+
+Every relationship carries the identification strategy that would license
+reading it causally, and the assumptions that would have to hold. An edge
+identified as `"adjustment"` is an association however high it scores.
+
+```{r evidence}
+results$graph$edges[, c("source", "target", "level_label",
+                        "identification", "evidence_score")]
+```
+
+`explain()` gathers everything known about one variable, including what each
+method reported on its own before anything was merged.
+
+```{r explain, eval = FALSE}
+explain(results, "P1")
+```
+
+`counterfactual()` states the findings in the units the variable was measured
+in. Nothing is included unless you name it as something that could plausibly
+be changed &mdash; a contrast for a genotype is arithmetic without meaning.
+
+```{r counterfactual, eval = FALSE}
+counterfactual(results, modifiable = "proteomics")
+```
+
+Prior biological knowledge can be attached with `annotate_evidence()`. It is
+reported beside the score and never folded into it, so a relationship nobody
+has published yet is not penalised for being new. It takes a local export
+rather than a live query, which keeps the analysis offline, deterministic and
+independent of a database version the result could not record.
+
+```{r annotate, eval = FALSE}
+known <- data.frame(source = "P1", target = "M1",
+                    support = 0.9, database = "local STRING export")
+
+annotate_evidence(results, known)
+```
+
 ## Reading the results
 
 `report()` turns a validation into something readable. The console format

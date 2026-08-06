@@ -1,0 +1,905 @@
+<section id="start" class="active">
+<h2>Start here</h2>
+
+<p class="lead">This guide assumes you know nothing: not about R, not about
+programming, not about omics. Everything is explained from the beginning, and
+every piece of code can be copied and run.</p>
+
+<h3>The problem this library solves</h3>
+
+<p>Imagine you have measured thousands of things in a group of people. The
+amount of each protein in their blood. The amount of each metabolite. Which
+bacteria live in their gut. Their age, their weight, their cholesterol. And
+then something happened to some of them &mdash; they developed a disease, or
+they recovered, or they did not.</p>
+
+<p>The question you actually care about is <b>why</b>. Which of those
+thousands of measurements explain what happened? And not just which ones are
+related to the outcome, but <i>through what chain</i>: does a bacterium change
+a metabolite, which changes a protein, which changes the disease?</p>
+
+<div class="callout">
+<h4>Why this is hard</h4>
+<p>With thousands of measurements and a few dozen people, you will find
+relationships that are pure coincidence. Flip enough coins and some will land
+heads ten times in a row. The difficulty is not finding relationships; it is
+telling the real ones from the accidents, and then not fooling yourself into
+thinking a real relationship means one thing <i>causes</i> the other.</p>
+</div>
+
+<h3>What the library does</h3>
+
+<p>It takes you through four steps. Each one produces a result you can inspect,
+and each one records every decision it made, so you can always see why
+something happened.</p>
+
+<div class="steps">
+  <div class="step"><span class="stepnum">1</span>
+    <b>Check</b><p>Looks at your data and finds the problems: missing values,
+    variables that never change, duplicated samples, odd distributions. It
+    changes nothing &mdash; it only reports.</p></div>
+  <div class="step"><span class="stepnum">2</span>
+    <b>Prepare</b><p>Cleans the data following a plan that step 1 wrote. Fills
+    gaps, puts everything on comparable scales, removes what is useless.</p></div>
+  <div class="step"><span class="stepnum">3</span>
+    <b>Analyse</b><p>Runs many different statistical methods, and combines
+    what they all found into one picture.</p></div>
+  <div class="step"><span class="stepnum">4</span>
+    <b>Read</b><p>Produces a report you can actually understand, including an
+    honest account of what the results do <i>not</i> prove.</p></div>
+</div>
+
+<h3>The one idea that makes this library different</h3>
+
+<p>Most tools give you a model and a list of numbers. This one gives you
+<b>evidence</b>.</p>
+
+<p>The difference matters. If you run six different statistical methods and all
+six find the same relationship, that is more convincing than one method finding
+it. But &mdash; and this is the part most tools get wrong &mdash; it is
+<i>not</i> proof that one thing causes the other. If all six methods are
+looking at the same data, and something you never measured is driving both
+variables, all six will agree and all six will be wrong in the same way.</p>
+
+<p>So every relationship this library reports carries a label saying how much
+you are allowed to claim. That label is not decoration. It is the point.</p>
+
+</section>
+
+
+<section id="setup">
+<h2>Getting set up</h2>
+
+<h3>What R is</h3>
+
+<p>R is a free program for working with data. You type instructions, it
+carries them out. You will be typing instructions into a box and reading what
+comes back.</p>
+
+<ol>
+<li>Download and install R from <span class="code-inline">https://cran.r-project.org</span></li>
+<li>Download and install RStudio from <span class="code-inline">https://posit.co/download/rstudio-desktop/</span>
+&mdash; this is a friendlier window for using R. Open RStudio, not R.</li>
+<li>In RStudio you will see a panel called <b>Console</b>. That is where you
+type. Paste a line, press Enter, and it runs.</li>
+</ol>
+
+<h3>What a package is</h3>
+
+<p>R on its own can do arithmetic and statistics. A <b>package</b> adds new
+abilities. CausalMultiOmics is a package. Installing it means downloading its
+code once; loading it means switching it on for your current session.</p>
+
+<pre><code># Install the helper that installs packages from source (once, ever)
+install.packages("devtools")
+
+# Install CausalMultiOmics from the folder you have it in
+devtools::install("path/to/CausalMultiOmics")
+
+# Switch it on (every time you start R)
+library(CausalMultiOmics)</code></pre>
+
+<div class="tip">
+<b>Anything after a <span class="code-inline">#</span> is a note to a human.</b>
+R ignores it. You can paste those lines too; nothing will happen.</div>
+
+<h3>Checking it worked</h3>
+
+<pre><code>library(CausalMultiOmics)
+
+# Read the package's own front page
+?CausalMultiOmics</code></pre>
+
+<p>If a help page opens, you are ready.</p>
+
+</section>
+
+
+<section id="tutorial">
+<h2>A complete worked example</h2>
+
+<p class="lead">This runs from an empty R session to a finished report. Paste
+each block in order. Nothing here needs any data of your own &mdash; we invent
+some.</p>
+
+<h3>Step 0 &mdash; Invent some data</h3>
+
+<p>We will build a small dataset where we <i>already know</i> the answer, so we
+can check the library finds it. We plant a chain: a protein affects a
+metabolite, and the metabolite affects the outcome.</p>
+
+<pre><code>library(CausalMultiOmics)
+
+set.seed(42)          # makes the random numbers repeatable
+n &lt;- 90               # ninety people
+
+# The planted chain
+protein    &lt;- rnorm(n)                              # a protein level
+metabolite &lt;- 0.8 * protein + rnorm(n, sd = 0.6)    # affected by the protein
+outcome    &lt;- 0.9 * metabolite + rnorm(n, sd = 0.7) # affected by the metabolite
+
+people &lt;- paste0("P", 1:n)   # names for our ninety people</code></pre>
+
+<p><b>What just happened.</b> <span class="code-inline">rnorm(n)</span> makes
+<span class="code-inline">n</span> random numbers. The
+<span class="code-inline">&lt;-</span> arrow means "store this under that name".
+So <span class="code-inline">protein</span> now holds 90 numbers.</p>
+
+<h3>Step 1 &mdash; Put the data into the library</h3>
+
+<p>Measurements come in <b>blocks</b>. One block per kind of measurement: one
+for proteins, one for metabolites, one for clinical variables. Blocks do not
+have to contain the same people.</p>
+
+<pre><code>proteins &lt;- data.frame(
+  APOA1 = protein,
+  CRP   = rnorm(n),          # a protein unrelated to anything
+  row.names = people
+)
+
+metabolites &lt;- data.frame(
+  SCFA = metabolite,
+  TMAO = rnorm(n),           # another unrelated one
+  row.names = people
+)
+
+# Everything we know about the people themselves
+info &lt;- data.frame(
+  sample_id    = people,
+  HDL_function = outcome,
+  age          = rnorm(n, 55, 8)
+)
+
+study &lt;- load_data(
+  assays   = list(proteins = proteins, metabolites = metabolites),
+  metadata = info,
+  modality = c(proteins = "proteomics", metabolites = "metabolomics")
+)
+
+study</code></pre>
+
+<div class="callout">
+<h4>Row names are not optional</h4>
+<p><span class="code-inline">row.names = people</span> labels each row with
+whose measurement it is. Without it the library refuses to continue &mdash; on
+purpose. If blocks have no labels, two unrelated blocks would look as if they
+shared all their samples, and every result after that would be nonsense.</p>
+</div>
+
+<h3>Step 2 &mdash; Check the data</h3>
+
+<pre><code>quality &lt;- check_data(study)
+
+quality              # a short summary
+summary(quality)     # everything it found</code></pre>
+
+<p>This changes nothing. It reports: how much is missing, which variables never
+vary, whether samples are duplicated, what kind of numbers each block contains,
+and a quality score out of 100. It also writes a <b>plan</b> for cleaning the
+data &mdash; which you can read before anything is applied:</p>
+
+<pre><code># The plan for the proteins block
+quality$recipes$proteins</code></pre>
+
+<h3>Step 3 &mdash; Clean the data</h3>
+
+<pre><code>clean &lt;- preprocess(study, quality)
+
+clean                # what was done
+summary(clean)       # step by step</code></pre>
+
+<p><span class="code-inline">preprocess()</span> decides nothing on its own. It
+executes the plan from step 2, in order, and records every step: what ran, with
+what settings, how the data looked before and after.</p>
+
+<h3>Step 4 &mdash; Analyse</h3>
+
+<pre><code>results &lt;- analyze(
+  clean,
+  outcome    = "HDL_function",
+  covariates = "age"
+)
+
+results
+summary(results)</code></pre>
+
+<p>This runs up to nine different statistical methods, collects every
+relationship each one found, and merges them into a single scored map.</p>
+
+<h3>Step 5 &mdash; Read the results</h3>
+
+<pre><code># A report anyone can read, saved as a web page
+report(results, file = "my_report.html")
+
+# Or straight to the screen
+report(results, format = "console")</code></pre>
+
+<h3>Did it find what we planted?</h3>
+
+<pre><code>results$causal_paths</code></pre>
+
+<p>You should see <span class="code-inline">APOA1 -&gt; SCFA -&gt;
+HDL_function</span> near the top &mdash; the chain we planted. The unrelated
+variables (<span class="code-inline">CRP</span>,
+<span class="code-inline">TMAO</span>) should score far lower.</p>
+
+<h3>Step 6 &mdash; Ask why a variable is there</h3>
+
+<pre><code>explain(results, "SCFA")</code></pre>
+
+<p>This gathers everything the engine knows about one variable into a single
+account: which methods supported it and at what kind of evidence, how stable
+it was when the analysis was repeated on resampled data, what a hidden factor
+would have to look like to explain it away, which chains it sits on, and what
+each method reported <i>on its own</i> before anything was merged.</p>
+
+<h3>Step 7 &mdash; Ask what changing something would mean</h3>
+
+<pre><code>counterfactual(results, modifiable = "metabolites")</code></pre>
+
+<p>This expresses the findings in the units the variable was measured in:
+&ldquo;an increase of 18.7 in APOA1 from 135.7 is associated with a 75% lower
+risk of the event&rdquo;.</p>
+
+<div class="callout danger">
+<h4>Why you must say what is changeable</h4>
+<p>Nothing is included unless you name it. That is deliberate: a contrast for
+a genotype or an ancestry component is arithmetic without meaning, and
+printing one invites a reading nothing can support. You are the one who knows
+what could plausibly be acted on &mdash; a diet, a treatable protein &mdash;
+and what could not.</p>
+<p>Even for the variables you do name, the sentence says <b>is associated
+with</b>, not <b>would reduce</b>, unless the evidence supports that word. It
+describes how the outcome differs between people whose measurements differ,
+which is not the same as what would happen if you changed one person.</p>
+</div>
+
+<h3>Step 8 &mdash; Decide how much computation to spend</h3>
+
+<p>Everything expensive is off unless you ask for it, through one argument.</p>
+
+<pre><code>analyze(clean, outcome = "HDL_function", effort = "fast")       # generators once
+analyze(clean, outcome = "HDL_function", effort = "standard")   # + diagnostics, 50 resamples
+analyze(clean, outcome = "HDL_function", effort = "thorough")   # + null calibration
+analyze(clean, outcome = "HDL_function", effort = "exhaustive") # 500 resamples, every method</code></pre>
+
+<p>Each piece can also be set on its own, so you never have to accept a preset
+wholesale:</p>
+
+<pre><code>analyze(clean, outcome = "HDL_function",
+        effort       = "fast",
+        resample     = 100,              # test stability anyway
+        permutations = 50,               # and calibrate against noise
+        negative_controls = "height",    # this should not appear
+        heterogeneity     = c("sex"),    # does it hold in both groups?
+        modifiable        = "metabolites")</code></pre>
+
+<div class="tip"><b>Cost.</b> Resampling and permutation are the only parts
+that take real time, and both scale linearly with their number. A hundred
+resamples costs roughly a hundred times one pass. Start with
+<span class="code-inline">"fast"</span> while you are exploring.</div>
+
+<h3>Applying the same cleaning to new people</h3>
+
+<p>If you later collect a second group and want to compare it fairly, you must
+clean it <i>exactly</i> the same way &mdash; using the numbers learned from the
+first group, not recalculated from the second.</p>
+
+<pre><code>ready &lt;- apply_preprocessing(new_study, clean)</code></pre>
+
+<div class="tip"><b>Why this matters.</b> If you re-cleaned the new group using
+its own averages, the two groups would be on different scales and any
+comparison would be meaningless. This function reuses the stored numbers.</div>
+
+</section>
+
+
+<section id="workflow">
+<h2>How the pieces fit together</h2>
+
+<p class="lead">Four functions, four results. Each function takes the result of
+the previous one. Nothing is ever modified in place.</p>
+
+<pre class="flow"><code>       your measurements
+              |
+              v
+      +----------------+
+      |  load_data()   |
+      +----------------+
+              |
+              v
+       MultiOmicsData        the container: blocks + information about people
+              |
+              v
+      +----------------+
+      |  check_data()  |     looks, never touches
+      +----------------+
+              |
+              v
+       CMOValidation         problems found + a cleaning plan per block
+              |
+              v
+      +----------------+
+      |  preprocess()  |     executes the plan, records every step
+      +----------------+
+              |
+              v
+    PreprocessingResult      clean data + the exact recipe used
+              |               |
+              |               +--> apply_preprocessing()  same recipe, new people
+              v
+      +----------------+
+      |   analyze()    |     runs many methods, merges the evidence
+      +----------------+
+              |
+              v
+         CMOResult           the evidence graph + interpretation
+              |
+              v
+      +----------------+
+      |   report()     |     a web page a human can read
+      +----------------+
+
+  and, on the same CMOResult, at any time:
+
+      explain(result, "APOA1")            why is this variable here
+      counterfactual(result, modifiable)  what changing it would mean
+      annotate_evidence(result, refs)     attach outside knowledge</code></pre>
+
+<h3>Why the steps are separate</h3>
+
+<p>Each step is deliberately kept from doing the next one's job.</p>
+
+<ul>
+<li><b>check_data() decides, preprocess() executes.</b> The cleaning plan is
+written down before anything is applied, so you can read it, change it, or
+disagree with it.</li>
+<li><b>analyze() starts from cleaned data, not raw.</b> By the time analysis
+begins, every cleaning decision is already fixed and recorded. The analysis
+cannot quietly re-clean the data to suit itself.</li>
+<li><b>Nothing is modified in place.</b> Your original data is never altered.
+Every step returns a new object.</li>
+</ul>
+
+<h3>What a block is, beyond a group of columns</h3>
+
+<p>Each block is a layer of biology measured with one technology, and the
+library treats it as one throughout.</p>
+
+<ul>
+<li><b>Cleaning is per block.</b> Each gets its own data type detected, its
+own contest between reshapings, its own recipe and its own order of
+steps.</li>
+<li><b>Declaring the modality picks the method.</b> Telling
+<span class="code-inline">load_data()</span> that a block is RNA-seq rather
+than proteomics changes which normalisation is recommended, because the
+numbers alone cannot tell them apart.</li>
+<li><b>The screening budget is shared out.</b> Twenty thousand transcripts
+against five clinical variables is not a fair contest, so each block gets a
+quota with a floor rather than the biggest one taking every slot.</li>
+<li><b>Results can be read one layer at a time.</b> Evidence between every
+pair of blocks, how much of the total each carries, and what each detected
+community is made of &mdash; in
+<span class="code-inline">results$network$blocks</span>.</li>
+<li><b>Chains that cross layers are what mediation looks for.</b> A mediator
+inside the same block as its exposure is usually collinearity, not
+mechanism.</li>
+</ul>
+
+<h3>Variables that are categories</h3>
+
+<p>Sex, diet, treatment group. Factors pass through loading and cleaning
+untouched &mdash; nothing sensible comes of scaling a category &mdash; and
+are encoded when the analysis starts. A variable with <i>k</i> categories
+becomes <i>k</i>&minus;1 yes/no comparisons against a reference, which is the
+commonest category.</p>
+
+<p>You see them named like <span class="code-inline">diet=western</span>, and
+the report words them properly: <i>&ldquo;Being western rather than
+mediterranean goes together with lower HDL&rdquo;</i>, not &ldquo;higher
+diet=western&rdquo;.</p>
+
+<div class="tip"><b>Guards.</b> A column with more categories than people can
+sensibly compare &mdash; a barcode, a sample ID &mdash; is treated as an
+identifier and left out, and so are categories with too few observations to
+estimate anything. Both are reported, never dropped silently.</div>
+
+</section>
+
+
+<section id="objects">
+<h2>The objects</h2>
+
+<p class="lead">Each step returns an object &mdash; a labelled box holding
+everything that step produced. You open a box with the
+<span class="code-inline">$</span> sign.</p>
+
+<pre><code>results$evidence      # the "evidence" drawer of the results box
+results$graph$edges   # the "edges" drawer inside the "graph" drawer</code></pre>
+
+<p>Two commands work on every object:</p>
+
+<pre><code>results             # short summary
+summary(results)    # everything, laid out</code></pre>
+
+<div class="objgrid">
+
+<div class="objcard"><h4>MultiOmicsData</h4>
+<p>Your data, organised. Produced by <span class="code-inline">load_data()</span>.</p>
+<dl>
+<dt>assays</dt><dd>The measurement blocks themselves</dd>
+<dt>metadata</dt><dd>What you know about each person</dd>
+<dt>modality</dt><dd>What kind of assay each block is</dd>
+<dt>sample_info, feature_info</dt><dd>Which samples and variables exist where</dd>
+<dt>history</dt><dd>A log of what has been done</dd>
+</dl></div>
+
+<div class="objcard"><h4>CMOValidation</h4>
+<p>What the check found. Produced by <span class="code-inline">check_data()</span>.</p>
+<dl>
+<dt>valid</dt><dd>Whether the data is usable at all</dd>
+<dt>score</dt><dd>Overall quality, 0&ndash;100</dd>
+<dt>errors, warnings</dt><dd>Problems, by severity</dd>
+<dt>diagnostics</dt><dd>Full statistics per block</dd>
+<dt>recipes</dt><dd>The cleaning plan per block</dd>
+<dt>transformations</dt><dd>Which reshaping was tested and why one won</dd>
+<dt>plots, tables</dt><dd>Figures and summaries</dd>
+</dl></div>
+
+<div class="objcard"><h4>BlockDiagnostics</h4>
+<p>Everything measured about one block. Lives inside
+<span class="code-inline">CMOValidation$diagnostics</span>.</p>
+<dl>
+<dt>data_type</dt><dd>Counts, proportions, continuous&hellip;</dd>
+<dt>missing_percent</dt><dd>How much is absent</dd>
+<dt>mean, median, sd, skewness&hellip;</dd><dd>The usual statistics</dd>
+<dt>constant_features</dt><dd>Variables that never change</dd>
+<dt>pca, correlation</dt><dd>Structure between variables</dd>
+</dl></div>
+
+<div class="objcard"><h4>PreprocessingRecipe</h4>
+<p>The cleaning plan for one block. A plan, not an action.</p>
+<dl>
+<dt>imputation</dt><dd>How to fill gaps</dd>
+<dt>transformation</dt><dd>How to reshape the numbers</dd>
+<dt>normalization</dt><dd>How to make samples comparable</dd>
+<dt>scaling</dt><dd>How to make variables comparable</dd>
+<dt>stage_order</dt><dd>The order these must run in</dd>
+</dl></div>
+
+<div class="objcard"><h4>PreprocessingResult</h4>
+<p>The plan, executed. Produced by <span class="code-inline">preprocess()</span>.</p>
+<dl>
+<dt>data</dt><dd>The cleaned data</dd>
+<dt>steps</dt><dd>Every step that ran, in order, with its settings</dd>
+<dt>models</dt><dd>The numbers learned, so they can be reused</dd>
+<dt>removed_samples, removed_features</dt><dd>What was dropped and why</dd>
+<dt>quality</dt><dd>Before and after comparison</dd>
+</dl></div>
+
+<div class="objcard"><h4>EvidenceEdge</h4>
+<p>One relationship between two variables. The atom of the whole analysis.</p>
+<dl>
+<dt>source, target</dt><dd>From what, to what</dd>
+<dt>estimate, direction</dt><dd>How strong, which way</dd>
+<dt>evidence_score</dt><dd>0&ndash;100 overall</dd>
+<dt>strength, confidence, consistency</dt><dd>The three parts of that score</dd>
+<dt>identification</dt><dd><b>How much you may claim about cause</b></dd>
+<dt>assumptions</dt><dd>What would have to be true</dd>
+</dl></div>
+
+<div class="objcard"><h4>EvidenceGraph</h4>
+<p>All the relationships together, as a map.</p>
+<dl>
+<dt>nodes</dt><dd>The variables</dd>
+<dt>edges</dt><dd>The relationships</dd>
+<dt>paths</dt><dd>Chains leading to the outcome</dd>
+<dt>communities</dt><dd>Groups of variables that hang together</dd>
+</dl></div>
+
+<div class="objcard"><h4>CMOResult</h4>
+<p>The finished analysis. Produced by <span class="code-inline">analyze()</span>.</p>
+<dl>
+<dt>evidence</dt><dd>Every merged relationship</dd>
+<dt>graph</dt><dd>The map</dd>
+<dt>causal_paths</dt><dd>Chains, best first</dd>
+<dt>interpretation</dt><dd>Drivers, mediators, hubs, candidates</dd>
+<dt>importance</dt><dd>Which variables matter most</dd>
+<dt>report</dt><dd>Findings and limitations</dd>
+</dl></div>
+
+<div class="objcard"><h4>TransformationRecommendation</h4>
+<p>The contest between ways of reshaping one block, and who won.</p>
+<dl>
+<dt>candidates</dt><dd>What was tried</dd>
+<dt>ranking, metrics</dt><dd>How each scored</dd>
+<dt>recommended</dt><dd>The winner</dd>
+<dt>justification</dt><dd>Why it won</dd>
+</dl></div>
+
+<div class="objcard"><h4>CMOExplanation</h4>
+<p>Everything known about one variable. Produced by
+<span class="code-inline">explain()</span>.</p>
+<dl>
+<dt>edges</dt><dd>Every relationship it takes part in</dd>
+<dt>paths</dt><dd>Chains it sits on</dd>
+<dt>roles</dt><dd>Hub, mediator, bridge&hellip;</dd>
+<dt>encoding</dt><dd>Set when it came from a category</dd>
+</dl></div>
+
+<div class="objcard"><h4>CMOCounterfactual</h4>
+<p>What changing something would mean, in original units. Produced by
+<span class="code-inline">counterfactual()</span>.</p>
+<dl>
+<dt>table</dt><dd>One row per contrast</dd>
+<dt>statements</dt><dd>The same, as sentences with their caveats</dd>
+<dt>skipped</dt><dd>What was left out, and why</dd>
+</dl></div>
+
+</div>
+</section>
+
+
+<section id="scores">
+<h2>Reading the scores honestly</h2>
+
+<p class="lead">This section is the most important one in the guide. If you read
+nothing else, read this.</p>
+
+<h3>The three numbers</h3>
+
+<p>Every relationship gets a score from 0 to 100. It is built from three
+things that are kept separate on purpose:</p>
+
+<table class="plain">
+<tr><th>Strength</th><td>How <b>big</b> the relationship is. When one variable
+moves, how much does the other move?</td></tr>
+<tr><th>Confidence</th><td>How <b>sure</b> we are of that number. More people
+and a tighter estimate mean higher confidence.</td></tr>
+<tr><th>Consistency</th><td>How many of the methods <b>agreed</b>. Several
+different methods look at the same data; this counts how many saw the same
+thing in the same direction.</td></tr>
+</table>
+
+<div class="callout danger">
+<h4>Agreement is not proof</h4>
+<p>It is tempting to read "six methods out of six agreed" as "this must be
+real, and it must be causal". It is not.</p>
+<p>All six methods are looking at <b>the same data</b>. If something you never
+measured is driving both variables, all six will find the relationship, all six
+will agree, and all six will be wrong in exactly the same way. Consistency
+tells you the finding is <b>stable</b>. It says nothing about whether it is
+<b>true</b>.</p>
+<p>Ice cream sales and sunburn rise together. Every method you throw at that
+data will agree. Ice cream still does not cause sunburn &mdash; hot weather
+causes both.</p>
+</div>
+
+<h3>The label that says what you may claim</h3>
+
+<p>Because of the above, every relationship carries an
+<span class="code-inline">identification</span> label:</p>
+
+<div class="idgrid">
+<div class="idcard weak"><b>none</b><p>The two were seen to move together and
+nothing else was taken into account. Weakest claim.</p></div>
+<div class="idcard medium"><b>adjustment</b><p>Known factors were subtracted
+out. Stronger &mdash; but only for the factors you actually measured.</p></div>
+<div class="idcard strong"><b>temporal</b><p>One was measured before the other,
+so the relationship cannot run backwards. Real progress, but a third factor
+driving both is still possible.</p></div>
+<div class="idcard strong"><b>instrument</b><p>A special variable was used
+that, under strong assumptions, does support a causal reading.</p></div>
+</div>
+
+<p>An edge labelled <span class="code-inline">none</span> or
+<span class="code-inline">adjustment</span> is an <b>association</b>, no matter
+how high its score. The library will tell you so:</p>
+
+<pre><code>results$evidence[[1]]              # prints the label and a warning if weak
+summary(results$evidence[[1]])    # prints the full list of assumptions</code></pre>
+
+<h3>Not every method makes the same kind of claim</h3>
+
+<p>A random forest says a variable helps predict. A Cox model on exposures
+measured before the event says something considerably stronger. Counting
+those as one vote each would make five predictive methods agreeing look like
+better evidence than one longitudinal model plus one mediation analysis,
+which is backwards.</p>
+
+<p>So every method carries a <b>level</b>, and Agreement is weighted by it:</p>
+
+<table class="plain">
+<tr><th>1 &middot; predictive</th><td>Random forest, elastic net. Says the
+variable carries information about the outcome; nothing about the size or the
+direction of an effect.</td></tr>
+<tr><th>2 &middot; associational</th><td>Linear and logistic regression,
+partial correlation, structure learning. Estimates an effect, conditional at
+best on what was measured.</td></tr>
+<tr><th>3 &middot; temporal</th><td>Survival models, mixed models on repeated
+measures. The exposure precedes the outcome, which rules out the relationship
+running backwards.</td></tr>
+<tr><th>4 &middot; mechanistic</th><td>Mediation. Commits to a specific chain
+and estimates its parts.</td></tr>
+<tr><th>5 &middot; identified</th><td>An instrument or a validated adjustment
+set.</td></tr>
+</table>
+
+<h3>Four more numbers worth knowing</h3>
+
+<div class="explain"><h4>E-value</h4>
+<p>How strong a hidden factor would have to be, on both the variable and the
+outcome, to explain the whole relationship away. Near 1 means a trivially
+weak one would do it; above 3 means it would have to be stronger than most
+known risk factors. It does not say a hidden factor exists &mdash; it says
+how much would be needed.</p></div>
+
+<div class="explain"><h4>Recovered in</h4>
+<p>The analysis is repeated on many random re-samples of the same people.
+This is how often the relationship survived. Something recovered in half the
+resamples is fragile however high its score, and this is the one number that
+catches that.</p></div>
+
+<div class="explain"><h4>Direction confidence</h4>
+<p>When methods disagree about which way the arrow points, how one-sided the
+disagreement was. 0.5 means it was a coin flip. Only measurement order really
+settles direction; everything else is inference.</p></div>
+
+<div class="explain"><h4>Found on shuffled data</h4>
+<p>The engine is run again with the outcome randomly reshuffled, which
+destroys any real relationship. If it still finds twenty-two relationships,
+your twenty-five mean very little. This is the single most useful number
+about a whole graph, and you get it with
+<span class="code-inline">permutations = 50</span>.</p></div>
+
+<h3>What to do with this</h3>
+
+<p>A high score with <span class="code-inline">adjustment</span> is a good
+<b>hypothesis</b>. It tells you where to look next &mdash; an experiment, a
+longitudinal follow-up, a knockout. It is not a conclusion. The library is
+built to help you generate hypotheses that are worth testing, not to hand you
+answers you did not earn.</p>
+
+<h3>Things that raise or lower your confidence</h3>
+
+<p>Two checks are worth asking for explicitly, because they catch failures
+that no score will:</p>
+
+<pre><code>analyze(clean, outcome = "event",
+        negative_controls = c("height"),   # should NOT appear
+        permutations      = 50)            # how much appears by chance</code></pre>
+
+<p>A <b>negative control</b> is something you know has no business being part
+of the mechanism. If height turns up with a strong score, the problem is not
+height: it is a sign that something other than biology &mdash; a batch
+effect, a technical artefact &mdash; is driving the whole graph.</p>
+
+<p>Prior biological knowledge can be attached too, with
+<span class="code-inline">annotate_evidence()</span>. It is reported
+<i>beside</i> the score and never folded into it, so that a relationship
+nobody has published yet is not penalised for being new.</p>
+
+</section>
+
+
+<section id="files">
+<h2>What is in each file</h2>
+
+<p class="lead">The library is six files of R code. You never need to open them
+to use it &mdash; this is here so you know where things live.</p>
+
+<div class="filegrid" id="filegrid"></div>
+
+</section>
+
+
+<section id="reference">
+<h2>Complete function reference</h2>
+
+<p class="lead">Every function in the library. Names beginning with a dot
+(<span class="code-inline">.like_this</span>) are internal &mdash; they do the
+work behind the scenes and you never call them directly. The seven without a
+dot are the ones you use.</p>
+
+<div class="filterbar">
+  <input type="text" id="fnFilter" placeholder="Filter by name or description..." oninput="filterFns()">
+  <label><input type="checkbox" id="publicOnly" onchange="filterFns()"> public functions only</label>
+  <span class="muted" id="fnCount"></span>
+</div>
+
+<div id="reference-body"></div>
+
+</section>
+
+
+<section id="errors">
+<h2>When something goes wrong</h2>
+
+<p class="lead">These are the messages you are most likely to see, what they
+mean, and what to do. The library tries to fail with an explanation rather than
+a code.</p>
+
+<div class="errcard">
+<code>Block 'x' has no sample identifiers.</code>
+<p><b>Meaning.</b> One of your blocks has no row labels, so the library cannot
+tell which measurement belongs to which person.</p>
+<p><b>Fix.</b> <span class="code-inline">rownames(my_block) &lt;- my_ids</span>
+before calling <span class="code-inline">load_data()</span>.</p>
+<p><b>Why it refuses.</b> Without labels every block would be numbered 1, 2,
+3&hellip; and two unrelated blocks would look as though they shared every
+sample.</p>
+</div>
+
+<div class="errcard">
+<code>Outcome 'y' has 4 unordered categories.</code>
+<p><b>Meaning.</b> Your outcome has more than two categories with no natural
+order (like colours, or treatment centres).</p>
+<p><b>Fix.</b> Turn it into a yes/no question &mdash; one category against all
+the rest &mdash; or use a genuinely ordered variable.</p>
+<p><b>Why it refuses.</b> There is no honest way to put unordered categories on
+a number line. The analysis would run and produce results that look perfectly
+normal and mean nothing.</p>
+</div>
+
+<div class="errcard">
+<code>Only 3 sample(s) are shared by the blocks a, b.</code>
+<p><b>Meaning.</b> Your blocks barely overlap, so almost nobody has both kinds
+of measurement.</p>
+<p><b>Fix.</b> Analyse fewer blocks at once, or check that the sample
+identifiers really match between blocks (typos, prefixes, capitals).</p>
+</div>
+
+<div class="errcard">
+<code>The plan does not match this object.</code>
+<p><b>Meaning.</b> You are trying to apply a cleaning plan that was written for
+different data.</p>
+<p><b>Fix.</b> Run <span class="code-inline">check_data()</span> again on the
+data you actually want to clean.</p>
+</div>
+
+<div class="errcard">
+<code>'object' must be a PreprocessingResult.</code>
+<p><b>Meaning.</b> You called <span class="code-inline">analyze()</span> on raw
+data instead of cleaned data.</p>
+<p><b>Fix.</b> Run <span class="code-inline">preprocess()</span> first. Analysis
+deliberately starts from data whose cleaning is already fixed and recorded.</p>
+</div>
+
+<div class="errcard">
+<code>'time = "x"' was ignored</code>
+<p><b>Meaning.</b> A warning, not an error &mdash; the analysis ran. You gave a
+time variable, but it changed nothing, because a time variable is only used
+when paired with a yes/no event (survival) or with repeated measurements per
+person (longitudinal).</p>
+<p><b>Fix.</b> Either supply a binary outcome alongside it, or a
+<span class="code-inline">subject</span> column with repeated measurements.</p>
+</div>
+
+<div class="errcard">
+<code>The knn method needs package 'x', which is not installed.</code>
+<p><b>Meaning.</b> An optional method needs something you do not have.</p>
+<p><b>Fix.</b> <span class="code-inline">install.packages("x")</span>, or use a
+different method. The library never installs anything behind your back.</p>
+</div>
+
+<h3>Getting help inside R</h3>
+
+<pre><code>?analyze              # the manual page for a function
+?CausalMultiOmics     # the package front page
+args(analyze)         # just the list of arguments
+example(load_data)    # run the documented example</code></pre>
+
+</section>
+
+
+<section id="glossary">
+<h2>Glossary</h2>
+
+<dl class="glossary">
+<dt>Assay / block</dt><dd>One kind of measurement made on your samples &mdash;
+all the proteins, or all the metabolites. Blocks are kept separate because they
+behave differently.</dd>
+
+<dt>Sample</dt><dd>One person, animal or specimen. Rows of your data.</dd>
+
+<dt>Feature / variable</dt><dd>One thing measured. Columns of your data.</dd>
+
+<dt>Metadata</dt><dd>What you know about the samples themselves: age, sex,
+group, outcome.</dd>
+
+<dt>Outcome</dt><dd>The thing you are trying to explain.</dd>
+
+<dt>Covariate</dt><dd>Something you want to account for so it does not confuse
+the picture &mdash; age, for instance.</dd>
+
+<dt>Missing value</dt><dd>A measurement that was not obtained. Written
+<span class="code-inline">NA</span> in R.</dd>
+
+<dt>Imputation</dt><dd>Filling in missing values with an estimate.</dd>
+
+<dt>Normalisation</dt><dd>Removing technical differences between
+<i>samples</i>, so two people can be compared.</dd>
+
+<dt>Scaling</dt><dd>Putting <i>variables</i> on a comparable footing, so a
+measurement in thousands does not drown one in decimals.</dd>
+
+<dt>Transformation</dt><dd>Reshaping numbers &mdash; for instance taking
+logarithms &mdash; so they behave better in statistical models.</dd>
+
+<dt>Batch effect</dt><dd>A difference caused by <i>when</i> or <i>where</i>
+samples were processed rather than by biology.</dd>
+
+<dt>Confounder</dt><dd>Something that affects two variables at once, making
+them look related when neither causes the other. The central problem of this
+whole field.</dd>
+
+<dt>Mediator</dt><dd>A variable that sits in the middle of a chain: A affects
+B, and B affects C.</dd>
+
+<dt>Hub</dt><dd>A variable connected to many others in the map.</dd>
+
+<dt>Bridge</dt><dd>A variable linking two different kinds of measurement
+&mdash; a protein connected to a metabolite, say.</dd>
+
+<dt>p-value</dt><dd>Roughly: how surprising this result would be if there were
+really no relationship. Small means surprising.</dd>
+
+<dt>FDR</dt><dd>A p-value corrected for the fact that you tested thousands of
+things and some will look impressive by luck alone.</dd>
+
+<dt>Bootstrap</dt><dd>Re-running an analysis on many random re-samples of your
+data, to see how much the answer wobbles.</dd>
+
+<dt>Cross-sectional</dt><dd>Everything measured once, at one moment.</dd>
+
+<dt>Longitudinal</dt><dd>The same people measured repeatedly over time.</dd>
+
+<dt>Survival analysis</dt><dd>Studying how long it takes for an event to
+happen, allowing for people who never had it during the study.</dd>
+
+<dt>Evidence level</dt><dd>What kind of claim a method can support, from
+predictive up to identified. Agreement between methods is weighted by
+it.</dd>
+
+<dt>E-value</dt><dd>How strong an unmeasured factor would have to be to
+explain a relationship away entirely.</dd>
+
+<dt>Resampling</dt><dd>Repeating the analysis on random re-samples of the
+same people, to see which findings survive.</dd>
+
+<dt>Null calibration</dt><dd>Running the engine on data with the outcome
+shuffled, to see how much it finds when there is nothing to find.</dd>
+
+<dt>Negative control</dt><dd>Something you know cannot be part of the
+mechanism. If it appears anyway, the pipeline is picking up something that is
+not biology.</dd>
+
+<dt>Circos plot</dt><dd>The circular figure: each arc is one kind of
+measurement, each thread a relationship. The one picture that shows the whole
+answer at once.</dd>
+
+<dt>Counterfactual</dt><dd>What the results imply about changing a variable,
+stated in the units it was measured in.</dd>
+</dl>
+
+</section>

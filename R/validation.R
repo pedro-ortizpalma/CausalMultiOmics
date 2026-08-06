@@ -8,7 +8,10 @@
 # Internal utilities
 # =============================================================================
 
+#' Evaluate an expression, falling back to a default
+#'
 #' @keywords internal
+#' @noRd
 .safe_try <- function(expr, default = NULL) {
 
   result <- tryCatch(
@@ -92,7 +95,10 @@
 
 }
 
+#' Names of numeric columns in a block
+#'
 #' @keywords internal
+#' @noRd
 .numeric_columns <- function(block) {
 
   idx <- vapply(block, function(x) is.numeric(x) || is.integer(x), logical(1))
@@ -101,7 +107,10 @@
 
 }
 
+#' Numeric columns of a block as a matrix
+#'
 #' @keywords internal
+#' @noRd
 .numeric_matrix <- function(block) {
 
   nm <- .numeric_columns(block)
@@ -112,7 +121,10 @@
 
 }
 
+#' Pool finite numeric values from a block
+#'
 #' @keywords internal
+#' @noRd
 .pool_numeric <- function(block) {
 
   m <- .numeric_matrix(block)
@@ -123,7 +135,32 @@
 
 }
 
+#' Modality declared for a block, defaulting to "unknown"
+#'
+#' Hand-built \code{MultiOmicsData} objects need not carry the slot at all,
+#' so every read goes through here.
+#'
 #' @keywords internal
+.block_modality <- function(object, block_name) {
+
+  m <- object$modality
+
+  if (is.null(m) || length(m) == 0) return("unknown")
+
+  if (!(block_name %in% names(m))) return("unknown")
+
+  value <- as.character(m[[block_name]])
+
+  if (length(value) == 0 || is.na(value) || !nzchar(value)) return("unknown")
+
+  value
+
+}
+
+#' Find first metadata column matching patterns
+#'
+#' @keywords internal
+#' @noRd
 .find_metadata_column <- function(metadata, patterns) {
 
   if (is.null(metadata)) return(NULL)
@@ -281,7 +318,10 @@
 # Descriptive statistics helpers
 # =============================================================================
 
+#' Compute basic descriptive statistics for a vector
+#'
 #' @keywords internal
+#' @noRd
 .compute_basic_stats <- function(x) {
 
   x <- x[is.finite(x)]
@@ -317,7 +357,10 @@
 
 }
 
+#' Compute sample skewness of a vector
+#'
 #' @keywords internal
+#' @noRd
 .skewness <- function(x) {
 
   x <- x[is.finite(x)]
@@ -334,7 +377,10 @@
 
 }
 
+#' Compute excess kurtosis of a vector
+#'
 #' @keywords internal
+#' @noRd
 .kurtosis <- function(x) {
 
   x <- x[is.finite(x)]
@@ -351,7 +397,10 @@
 
 }
 
+#' Shapiro-Wilk normality test p-value
+#'
 #' @keywords internal
+#' @noRd
 .shapiro_p <- function(x) {
 
   x <- x[is.finite(x)]
@@ -369,7 +418,10 @@
 
 }
 
+#' Flag outliers using the IQR rule
+#'
 #' @keywords internal
+#' @noRd
 .outliers_iqr <- function(x) {
 
   x <- x[is.finite(x)]
@@ -388,7 +440,10 @@
 
 }
 
+#' Compute shape statistics and normality label
+#'
 #' @keywords internal
+#' @noRd
 .compute_shape_stats <- function(x) {
 
   x <- x[is.finite(x)]
@@ -429,7 +484,10 @@
 
 }
 
+#' Compute zero, sign, and sparsity statistics
+#'
 #' @keywords internal
+#' @noRd
 .compute_composition_stats <- function(m) {
 
   x <- as.numeric(m)
@@ -467,7 +525,10 @@
 # Missing values
 # =============================================================================
 
+#' Compute missingness statistics for a block
+#'
 #' @keywords internal
+#' @noRd
 .compute_missing_stats <- function(block) {
 
   m <- is.na(block)
@@ -499,7 +560,10 @@
 # Constant / near-constant / duplicated
 # =============================================================================
 
+#' Detect constant features in a block
+#'
 #' @keywords internal
+#' @noRd
 .constant_features <- function(block) {
 
   idx <- vapply(block, function(x) length(unique(stats::na.omit(x))) <= 1, logical(1))
@@ -508,7 +572,10 @@
 
 }
 
+#' Detect near-constant features above a threshold
+#'
 #' @keywords internal
+#' @noRd
 .near_constant_features <- function(block, threshold = 0.95) {
 
   const <- .constant_features(block)
@@ -533,7 +600,10 @@
 
 }
 
+#' Detect duplicated feature columns
+#'
 #' @keywords internal
+#' @noRd
 .duplicated_features <- function(block) {
 
   if (ncol(block) < 2) return(character(0))
@@ -544,10 +614,22 @@
 
 }
 
+#' Detect duplicated sample rows
+#'
 #' @keywords internal
+#' @noRd
 .duplicated_samples <- function(block) {
 
   if (nrow(block) < 2) return(character(0))
+
+  # A duplicated sample means the same specimen was measured twice, and the
+  # evidence for that is an identical profile across many features. With one
+  # or two low-cardinality variables identical rows are the expected outcome,
+  # not an anomaly: a single genotype column taking three values makes almost
+  # every row a "duplicate" of another, and acting on that removes nearly the
+  # whole cohort.
+
+  if (ncol(block) < 3) return(character(0))
 
   sig <- apply(block, 1, function(r) paste(as.character(r), collapse = "\r"))
 
@@ -555,7 +637,16 @@
 
   if (is.null(ids)) ids <- as.character(seq_len(nrow(block)))
 
-  ids[duplicated(sig)]
+  duplicated_ids <- ids[duplicated(sig)]
+
+  # Even with enough columns, a block of coarse categories produces repeats by
+  # chance. Genuine re-measurement affects a handful of samples; when a large
+  # share of the cohort looks duplicated the block is simply low-resolution,
+  # and the finding is about the variables rather than the samples.
+
+  if (length(duplicated_ids) > 0.2 * nrow(block)) return(character(0))
+
+  duplicated_ids
 
 }
 
@@ -563,7 +654,10 @@
 # Multivariate: correlation, covariance, PCA
 # =============================================================================
 
+#' Compute covariance, correlation, and PCA
+#'
 #' @keywords internal
+#' @noRd
 .compute_multivariate <- function(block, max_features = 200) {
 
   m <- .numeric_matrix(block)
@@ -612,7 +706,10 @@
 # Outcome discovery (used by the transformation benchmark)
 # =============================================================================
 
+#' Discover survival outcome columns in metadata
+#'
 #' @keywords internal
+#' @noRd
 .discover_outcome <- function(object, block_name) {
 
   if (is.null(object$metadata)) return(NULL)
@@ -675,13 +772,17 @@
 # .build_block_diagnostics()
 # =============================================================================
 
+#' Build diagnostics summary for one block
+#'
 #' @keywords internal
-.build_block_diagnostics <- function(block_name, block) {
+#' @noRd
+.build_block_diagnostics <- function(block_name, block, modality = "unknown") {
 
   d <- BlockDiagnostics()
 
   d$block <- block_name
   d$data_type <- .detect_data_type(block)
+  d$modality <- if (is.null(modality)) "unknown" else modality
   d$objective <- "descriptive"
   d$samples <- nrow(block)
   d$features <- ncol(block)
@@ -755,7 +856,10 @@
 # Candidate transformations per data type
 # =============================================================================
 
+#' List candidate transformations for a data type
+#'
 #' @keywords internal
+#' @noRd
 .candidate_transformations <- function(data_type) {
 
   switch(
@@ -781,7 +885,10 @@
 # Transformation implementations
 # =============================================================================
 
+#' Shift values to be strictly positive
+#'
 #' @keywords internal
+#' @noRd
 .t_shift_positive <- function(x) {
 
   mn <- min(x, na.rm = TRUE)
@@ -792,7 +899,10 @@
 
 }
 
+#' Log transform after positive shift
+#'
 #' @keywords internal
+#' @noRd
 .t_log <- function(x, base = exp(1)) log(.t_shift_positive(x), base = base)
 
 #' Square root, floored at zero
@@ -804,7 +914,10 @@
 #' @keywords internal
 .t_sqrt <- function(x) sqrt(pmax(x, 0))
 
+#' Signed cube root transform
+#'
 #' @keywords internal
+#' @noRd
 .t_cuberoot <- function(x) sign(x) * abs(x)^(1 / 3)
 
 #' Anscombe variance-stabilizing transform
@@ -814,10 +927,16 @@
 #' @keywords internal
 .t_vst <- function(x) 2 * sqrt(pmax(x, 0) + 3 / 8)
 
+#' Rank transform with averaged ties
+#'
 #' @keywords internal
+#' @noRd
 .t_rank <- function(x) rank(x, na.last = "keep", ties.method = "average")
 
+#' Quantile-normalize via rank to normal
+#'
 #' @keywords internal
+#' @noRd
 .t_quantile <- function(x) {
 
   r <- rank(x, na.last = "keep", ties.method = "average")
@@ -827,7 +946,10 @@
 
 }
 
+#' Median-MAD robust standardization
+#'
 #' @keywords internal
+#' @noRd
 .t_robust <- function(x) {
 
   med <- stats::median(x, na.rm = TRUE)
@@ -839,7 +961,10 @@
 
 }
 
+#' Box-Cox transform with optimized lambda
+#'
 #' @keywords internal
+#' @noRd
 .t_boxcox <- function(x) {
 
   x <- .t_shift_positive(x)
@@ -871,7 +996,10 @@
 
 }
 
+#' Yeo-Johnson transform with optimized lambda
+#'
 #' @keywords internal
+#' @noRd
 .t_yeojohnson <- function(x) {
 
   ll <- function(lambda) {
@@ -890,7 +1018,10 @@
 
 }
 
+#' Apply Yeo-Johnson formula to one value
+#'
 #' @keywords internal
+#' @noRd
 .yj_transform <- function(x, lambda) {
 
   if (is.na(x)) return(NA_real_)
@@ -907,7 +1038,10 @@
 
 }
 
+#' Centered log-ratio transform of a matrix
+#'
 #' @keywords internal
+#' @noRd
 .t_clr <- function(m) {
 
   m <- as.matrix(m)
@@ -918,7 +1052,10 @@
 
 }
 
+#' Additive log-ratio transform of a matrix
+#'
 #' @keywords internal
+#' @noRd
 .t_alr <- function(m) {
 
   m <- as.matrix(m)
@@ -929,7 +1066,10 @@
 
 }
 
+#' Isometric log-ratio transform of a matrix
+#'
 #' @keywords internal
+#' @noRd
 .t_ilr <- function(m) {
 
   clr <- .t_clr(m)
@@ -1064,7 +1204,10 @@
 # Transformation metrics
 # =============================================================================
 
+#' Compute quality metrics for a transformation
+#'
 #' @keywords internal
+#' @noRd
 .transformation_metrics <- function(before, after) {
 
   before <- before[is.finite(before)]
@@ -1103,7 +1246,10 @@
 
 }
 
+#' Composite score for ranking a transformation
+#'
 #' @keywords internal
+#' @noRd
 .composite_score <- function(metrics, outcome_perf = NA_real_) {
 
   skew_term <- 1 / (1 + abs(ifelse(is.na(metrics$skewness), 5, metrics$skewness)))
@@ -1475,17 +1621,36 @@
 
 .stage_order <- function(data_type) {
 
-  if (identical(data_type, "count")) {
+  # Library size has to be normalized before any variance-stabilizing
+  # transformation for counts; every other type transforms first.
 
-    c("filter", "imputation", "normalization", "transformation",
-      "scaling", "batch", "feature_selection")
+  core <- if (identical(data_type, "count")) {
+
+    c("normalization", "transformation")
 
   } else {
 
-    c("filter", "imputation", "transformation", "normalization",
-      "scaling", "batch", "feature_selection")
+    c("transformation", "normalization")
 
   }
+
+  # Structural removal (constant, duplicated, empty) runs first because it is
+  # invariant to everything downstream. Statistical filtering ("filter":
+  # variance, abundance, prevalence) runs late on purpose: the variance of
+  # raw counts carries no meaning until the block has been normalized and
+  # transformed onto a comparable scale.
+
+  c(
+    "remove_samples",
+    "remove_features",
+    "imputation",
+    core,
+    "scaling",
+    "batch",
+    "outliers",
+    "filter",
+    "feature_selection"
+  )
 
 }
 
@@ -1498,11 +1663,31 @@
 #'
 #' @keywords internal
 
-.resolve_normalization <- function(data_type, features, transformation) {
+.resolve_normalization <- function(data_type, features, transformation,
+                                   modality = "unknown") {
 
   transformation <- if (is.null(transformation)) "identity" else transformation
+  modality <- if (is.null(modality)) "unknown" else modality
 
-  normalization <- switch(
+  # The modality, when the user declared it, is more informative than the
+  # statistical type: RNA-seq counts and any other counts are identical as
+  # numbers but call for different normalization families.
+
+  by_modality <- switch(
+
+    modality,
+
+    rnaseq = "tmm",
+    proteomics = if (features > 20) "quantile" else "median",
+    metabolomics = "pqn",
+    microbiome = "total_sum_scaling",
+    methylation = "none",
+
+    NULL
+
+  )
+
+  by_type <- switch(
 
     data_type,
 
@@ -1516,9 +1701,44 @@
 
   )
 
-  # Quantile normalization would discard a rank-based transformation.
-  # Library-size normalization is a different operation: for count data it
-  # runs before the transformation and therefore stays in place.
+  # Size-factor methods divide a sample by its own total, median or trimmed
+  # mean, all of which assume non-negative magnitudes. A declared modality
+  # does not make already-centred or negative data eligible for them, so the
+  # modality preference is dropped rather than the type constraint.
+
+  magnitude_based <- c("tmm", "rle", "cpm", "total_sum_scaling", "tic", "pqn")
+
+  if (!is.null(by_modality) &&
+      by_modality %in% magnitude_based &&
+      !(data_type %in% c("count", "compositional", "proportion"))) {
+
+    by_modality <- NULL
+
+  }
+
+  normalization <- if (!is.null(by_modality)) by_modality else by_type
+
+  # For count data the normalization runs BEFORE the transformation (see
+  # .stage_order), so no transformation can invalidate it. For every other
+  # type the order is reversed, and a transformation that discards the
+  # original magnitude scale leaves nothing for a magnitude-based
+  # normalization to work on: dividing centred log-ratios by their row sum,
+  # or re-normalizing ranks, is arithmetic without meaning.
+
+  if (identical(data_type, "count")) return(normalization)
+
+  scale_free <- c("rank", "quantile", "robust", "clr", "alr", "ilr")
+
+  if (transformation %in% scale_free &&
+      normalization %in% c(magnitude_based, "median")) {
+
+    return("none")
+
+  }
+
+  # Rank-based transformations already impose a common distribution on every
+  # feature; quantile normalization on top would discard the transformation
+  # the benchmark selected.
 
   if (identical(normalization, "quantile") &&
       transformation %in% c("rank", "quantile")) {
@@ -1561,21 +1781,27 @@
 #' Build an automatic PreprocessingRecipe for one block
 #' @keywords internal
 
-.build_recipe <- function(block_name, diagnostic, transformation, metadata = NULL) {
+.build_recipe <- function(block_name, diagnostic, transformation,
+                          metadata = NULL, modality = "unknown") {
+
+  modality <- if (is.null(modality)) "unknown" else modality
 
   r <- PreprocessingRecipe()
 
   r$block <- block_name
   r$enabled <- TRUE
   r$automatic <- TRUE
+  r$data_type <- diagnostic$data_type
+  r$modality <- modality
   r$objective <- sprintf("Prepare '%s' (%s data) for downstream integration.",
                           block_name, diagnostic$data_type)
   r$priority <- 1L
+  r$stage_order <- .stage_order(diagnostic$data_type)
   r$comments <- c(
     "Recipe generated automatically by check_data().",
     sprintf(
       "Intended stage order: %s",
-      paste(.stage_order(diagnostic$data_type), collapse = " -> ")
+      paste(r$stage_order, collapse = " -> ")
     )
   )
 
@@ -1629,15 +1855,17 @@
     r$imputation <- "median"
     r$imputation_parameters <- list()
 
-  } else if (mp < 20) {
-
-    r$imputation <- "knn"
-    r$imputation_parameters <- list(k = 5)
-
   } else {
 
-    r$imputation <- "mice"
-    r$imputation_parameters <- list(m = 5, method = "pmm")
+    # knn also covers heavy missingness. Multiple imputation (mice) used to
+    # be recommended here, but it cannot be replayed: it draws several
+    # completed datasets rather than fitting a model that transfers to new
+    # samples, so a pipeline built on it is not reproducible on an external
+    # set. Multiple imputation belongs to the analysis stage, downstream of
+    # this one.
+
+    r$imputation <- "knn"
+    r$imputation_parameters <- list(k = if (mp < 20) 5 else 10)
 
   }
 
@@ -1661,7 +1889,8 @@
   r$normalization <- .resolve_normalization(
     diagnostic$data_type,
     diagnostic$features,
-    r$transformation
+    r$transformation,
+    modality
   )
 
   r$normalization_parameters <- list()
@@ -1755,7 +1984,10 @@
 # Quality control checks
 # =============================================================================
 
+#' Compute passed, failed, and skipped QC checks
+#'
 #' @keywords internal
+#' @noRd
 .compute_qc_checks <- function(validation, dataset_score, has_outcome) {
 
   passed <- character(0)
@@ -1865,7 +2097,10 @@
 # printed to the current device)
 # =============================================================================
 
+#' Record a plot safely off-screen
+#'
 #' @keywords internal
+#' @noRd
 .safe_record <- function(plot_fn) {
 
   grDevices::pdf(file = NULL)
@@ -1888,7 +2123,10 @@
 
 }
 
+#' Apply a function over all blocks
+#'
 #' @keywords internal
+#' @noRd
 .map_blocks <- function(assays, fn) {
 
   out <- lapply(names(assays), function(nm) fn(nm, assays[[nm]]))
@@ -1898,7 +2136,10 @@
 
 }
 
+#' Draw a labeled bar plot
+#'
 #' @keywords internal
+#' @noRd
 .plot_bar <- function(values, labels, main, ylab = "") {
 
   .safe_record(function() {
@@ -1919,7 +2160,10 @@
 
 }
 
+#' Plot missingness heatmap for a block
+#'
 #' @keywords internal
+#' @noRd
 .plot_missing_heatmap_block <- function(block_name, block) {
 
   if (nrow(block) == 0 || ncol(block) == 0) return(NULL)
@@ -1940,7 +2184,10 @@
 
 }
 
+#' Plot missing percent by sample
+#'
 #' @keywords internal
+#' @noRd
 .plot_missing_by_sample_block <- function(block_name, block) {
 
   if (nrow(block) == 0) return(NULL)
@@ -1957,7 +2204,10 @@
 
 }
 
+#' Plot missing percent by feature
+#'
 #' @keywords internal
+#' @noRd
 .plot_missing_by_feature_block <- function(block_name, block) {
 
   if (ncol(block) == 0) return(NULL)
@@ -1974,7 +2224,10 @@
 
 }
 
+#' Plot top missingness patterns by sample
+#'
 #' @keywords internal
+#' @noRd
 .plot_missing_pattern_block <- function(block_name, block) {
 
   if (nrow(block) == 0 || ncol(block) == 0) return(NULL)
@@ -1992,7 +2245,10 @@
 
 }
 
+#' Plot sample overlap heatmap between blocks
+#'
 #' @keywords internal
+#' @noRd
 .plot_overlap_heatmap <- function(overlap) {
 
   if (is.null(overlap) || nrow(overlap) == 0) return(NULL)
@@ -2015,7 +2271,10 @@
 
 }
 
+#' Plot block overlap as a network
+#'
 #' @keywords internal
+#' @noRd
 .plot_overlap_network <- function(overlap) {
 
   if (is.null(overlap) || nrow(overlap) < 2) return(NULL)
@@ -2063,7 +2322,10 @@
 
 }
 
+#' Plot correlation heatmap for a block
+#'
 #' @keywords internal
+#' @noRd
 .plot_correlation_heatmap_block <- function(block_name, correlation) {
 
   if (is.null(correlation) || nrow(correlation) < 2) return(NULL)
@@ -2084,7 +2346,10 @@
 
 }
 
+#' Plot distribution of pairwise correlations
+#'
 #' @keywords internal
+#' @noRd
 .plot_correlation_distribution_block <- function(block_name, correlation) {
 
   if (is.null(correlation) || nrow(correlation) < 2) return(NULL)
@@ -2103,7 +2368,10 @@
 
 }
 
+#' Plot histogram of pooled values
+#'
 #' @keywords internal
+#' @noRd
 .plot_histogram_block <- function(block_name, pooled) {
 
   if (length(pooled) < 2) return(NULL)
@@ -2119,7 +2387,10 @@
 
 }
 
+#' Plot density curve of pooled values
+#'
 #' @keywords internal
+#' @noRd
 .plot_density_block <- function(block_name, pooled) {
 
   if (length(pooled) < 2 || stats::sd(pooled) == 0) return(NULL)
@@ -2135,7 +2406,10 @@
 
 }
 
+#' Plot Q-Q plot against normal
+#'
 #' @keywords internal
+#' @noRd
 .plot_qqplot_block <- function(block_name, pooled) {
 
   if (length(pooled) < 3) return(NULL)
@@ -2149,7 +2423,10 @@
 
 }
 
+#' Plot boxplots of block features
+#'
 #' @keywords internal
+#' @noRd
 .plot_boxplot_block <- function(block_name, block) {
 
   nm <- .numeric_columns(block)
@@ -2172,7 +2449,10 @@
 
 }
 
+#' Compute violin plot polygon coordinates
+#'
 #' @keywords internal
+#' @noRd
 .violin_polygon <- function(x, at, width = 0.4) {
 
   x <- x[is.finite(x)]
@@ -2189,7 +2469,10 @@
 
 }
 
+#' Plot violin plots of block features
+#'
 #' @keywords internal
+#' @noRd
 .plot_violin_block <- function(block_name, block) {
 
   nm <- .numeric_columns(block)
@@ -2223,7 +2506,10 @@
 
 }
 
+#' Plot PCA scores, PC1 versus PC2
+#'
 #' @keywords internal
+#' @noRd
 .plot_pca_block <- function(block_name, pca) {
 
   if (is.null(pca) || ncol(pca$x) < 2) return(NULL)
@@ -2239,7 +2525,10 @@
 
 }
 
+#' Plot PCA scree of variance explained
+#'
 #' @keywords internal
+#' @noRd
 .plot_scree_block <- function(block_name, explained_variance) {
 
   if (is.null(explained_variance) || length(explained_variance) == 0) return(NULL)
@@ -2252,7 +2541,10 @@
 
 }
 
+#' Plot hierarchical clustering dendrogram
+#'
 #' @keywords internal
+#' @noRd
 .plot_dendrogram <- function(m, main) {
 
   if (nrow(m) < 3 || ncol(m) < 2) return(NULL)
@@ -2268,7 +2560,10 @@
 
 }
 
+#' Plot dendrogram clustering samples
+#'
 #' @keywords internal
+#' @noRd
 .plot_sample_clustering_block <- function(block_name, block) {
 
   m <- .numeric_matrix(block)
@@ -2278,7 +2573,10 @@
 
 }
 
+#' Plot dendrogram clustering features
+#'
 #' @keywords internal
+#' @noRd
 .plot_feature_clustering_block <- function(block_name, block) {
 
   m <- .numeric_matrix(block)
@@ -2288,7 +2586,10 @@
 
 }
 
+#' Plot pooled values highlighting outliers
+#'
 #' @keywords internal
+#' @noRd
 .plot_outliers_block <- function(block_name, pooled, outlier_idx) {
 
   if (length(pooled) < 2) return(NULL)
@@ -2309,7 +2610,10 @@
 
 }
 
+#' Plot composite scores per transformation
+#'
 #' @keywords internal
+#' @noRd
 .plot_transformation_scores_block <- function(block_name, ranking) {
 
   if (is.null(ranking) || nrow(ranking) == 0) return(NULL)
@@ -2320,7 +2624,10 @@
 
 }
 
+#' Plot histograms before and after transform
+#'
 #' @keywords internal
+#' @noRd
 .plot_transformation_comparison_block <- function(block_name, before, after) {
 
   if (length(before) < 2 || length(after) < 2) return(NULL)
@@ -2345,7 +2652,10 @@
 # .build_plots()
 # =============================================================================
 
+#' Assemble all diagnostic plots for a dataset
+#'
 #' @keywords internal
+#' @noRd
 .build_plots <- function(assays, diagnostics, transformations, overlap) {
 
   plots <- list()
@@ -2462,7 +2772,10 @@
 # Table builders
 # =============================================================================
 
+#' Build summary table of block diagnostics
+#'
 #' @keywords internal
+#' @noRd
 .build_diagnostics_table <- function(diagnostics) {
 
   if (length(diagnostics) == 0) return(data.frame())
@@ -2490,7 +2803,10 @@
 
 }
 
+#' Build summary table of transformations
+#'
 #' @keywords internal
+#' @noRd
 .build_transformations_table <- function(transformations) {
 
   if (length(transformations) == 0) return(data.frame())
@@ -2511,7 +2827,10 @@
 
 }
 
+#' Build summary table of preprocessing recipes
+#'
 #' @keywords internal
+#' @noRd
 .build_recipes_table <- function(recipes) {
 
   if (length(recipes) == 0) return(data.frame())
@@ -2535,7 +2854,10 @@
 
 }
 
+#' Build table of QC check results
+#'
 #' @keywords internal
+#' @noRd
 .build_qc_table <- function(qc) {
 
   data.frame(
@@ -2554,7 +2876,10 @@
 # Recommendations
 # =============================================================================
 
+#' Generate text recommendations per block
+#'
 #' @keywords internal
+#' @noRd
 .generate_recommendations <- function(diagnostics, recipes, dataset_score) {
 
   global <- character(0)
@@ -2662,7 +2987,10 @@
 # Structural validation helpers
 # =============================================================================
 
+#' Validate multi-block data structure
+#'
 #' @keywords internal
+#' @noRd
 .validate_block_structure <- function(object) {
 
   errors <- character(0)
@@ -2855,7 +3183,10 @@
 
 }
 
+#' Validate metadata against block samples
+#'
 #' @keywords internal
+#' @noRd
 .validate_metadata <- function(object) {
 
   errors <- character(0)
@@ -2920,7 +3251,210 @@
 
 }
 
+#' How the shared-sample count collapses as blocks are added
+#'
+#' The pairwise matrix is the wrong number to read and the easiest one to
+#' reach for. Every pair of twenty blocks can share all 1800 samples while
+#' the twenty of them together share none, because each block can be missing
+#' a different ninety. An analysis needs the intersection of all of them, so
+#' that is the figure that decides whether it can run.
+#'
+#' Blocks are added largest first, which puts the collapse next to the block
+#' that caused it rather than wherever it happened to fall in the list.
+#'
+#' @param assays A named list of blocks.
+#'
+#' @return A data.frame with one row per block: the running intersection
+#'   after adding it and how many samples that cost.
 #' @keywords internal
+#' @noRd
+.cumulative_overlap <- function(assays) {
+
+  if (length(assays) == 0) return(data.frame())
+
+  id_sets <- lapply(assays, rownames)
+
+  order_by_size <- order(vapply(id_sets, length, integer(1)), decreasing = TRUE)
+
+  id_sets <- id_sets[order_by_size]
+
+  running <- NULL
+  rows <- list()
+
+  for (nm in names(id_sets)) {
+
+    before <- if (is.null(running)) length(id_sets[[nm]]) else length(running)
+
+    running <- if (is.null(running)) id_sets[[nm]] else
+      intersect(running, id_sets[[nm]])
+
+    rows[[length(rows) + 1L]] <- data.frame(
+      block = nm,
+      samples = length(id_sets[[nm]]),
+      shared_after = length(running),
+      lost = before - length(running),
+      stringsAsFactors = FALSE
+    )
+
+  }
+
+  out <- do.call(rbind, rows)
+  rownames(out) <- NULL
+
+  out
+
+}
+
+#' Say which blocks are responsible for an unusable intersection
+#'
+#' A count of zero tells the user their analysis cannot run and nothing about
+#' what to do next. What they need is the name of the block to drop, so the
+#' cheapest useful answer is to work out what the intersection would be
+#' without each one.
+#'
+#' @param id_sets Sample identifiers per block.
+#' @param min_samples How many are needed.
+#' @param original The same blocks before preprocessing, when available.
+#'
+#' @return A character vector of lines, ready to paste into an error.
+#' @keywords internal
+#' @noRd
+.explain_no_overlap <- function(id_sets, min_samples, original = NULL) {
+
+  lines <- character()
+
+  sizes <- vapply(id_sets, length, integer(1))
+
+  lines <- c(lines, "", "  Samples in each block:")
+  lines <- c(lines, sprintf("    %-28s %d", names(sizes), sizes))
+
+  # Established first, because it decides what the rest of the message can
+  # honestly claim. If the raw blocks overlapped and the preprocessed ones do
+  # not, nothing about the identifiers is wrong and saying so would send the
+  # reader to check a file that is fine.
+
+  broken_by_preprocessing <- FALSE
+  shared_before <- NA_integer_
+  shrunk <- character()
+
+  if (!is.null(original)) {
+
+    common <- intersect(names(original), names(id_sets))
+
+    if (length(common) > 1) {
+
+      shared_before <- length(Reduce(intersect,
+                                     lapply(original[common], rownames)))
+
+      broken_by_preprocessing <- shared_before >= min_samples
+
+      shrunk <- common[vapply(common, function(nm)
+        length(id_sets[[nm]]) < nrow(original[[nm]]), logical(1))]
+
+    }
+
+  }
+
+  if (broken_by_preprocessing) {
+
+    return(c(
+      lines, "",
+      sprintf("  Before preprocessing these blocks shared %d sample(s), so the",
+              shared_before),
+      "  identifiers are fine and preprocessing is what removed the overlap.",
+      if (length(shrunk) > 0)
+        sprintf("  Samples were dropped from: %s",
+                paste(shrunk, collapse = ", ")) else NULL,
+      "  Loosening the sample filters in the recipe would keep more."
+    ))
+
+  }
+
+  # Blocks that share nothing at all with the biggest one are almost never a
+  # cohort problem: they are identifiers written a different way.
+
+  biggest <- names(sizes)[which.max(sizes)]
+
+  disjoint <- names(id_sets)[vapply(
+    names(id_sets),
+    function(nm) !identical(nm, biggest) &&
+      length(intersect(id_sets[[nm]], id_sets[[biggest]])) == 0,
+    logical(1))]
+
+  if (length(disjoint) > 0) {
+
+    lines <- c(
+      lines, "",
+      sprintf("  These share no identifier at all with '%s':", biggest),
+      sprintf("    %s", paste(disjoint, collapse = ", ")),
+      "  That is usually a naming difference rather than a different cohort.",
+      sprintf("    '%s' has: %s", biggest,
+              paste(utils::head(id_sets[[biggest]], 3), collapse = ", ")),
+      sprintf("    '%s' has: %s", disjoint[1],
+              paste(utils::head(id_sets[[disjoint[1]]], 3), collapse = ", "))
+    )
+
+    return(lines)
+
+  }
+
+  # Otherwise: which single block, dropped, would make the analysis possible.
+
+  if (length(id_sets) > 1) {
+
+    without <- vapply(seq_along(id_sets), function(i) {
+      length(Reduce(intersect, id_sets[-i]))
+    }, integer(1))
+
+    names(without) <- names(id_sets)
+
+    helpful <- without[without >= min_samples]
+
+    if (length(helpful) > 0) {
+
+      helpful <- sort(helpful, decreasing = TRUE)
+
+      shown <- utils::head(helpful, 6)
+
+      lines <- c(
+        lines, "",
+        "  Dropping any one of these would leave enough, best first:",
+        sprintf("    without %-24s %d sample(s)", names(shown), shown),
+        if (length(helpful) > length(shown))
+          sprintf("    ... and %d other block(s) with the same effect",
+                  length(helpful) - length(shown)) else NULL
+      )
+
+    } else {
+
+      lines <- c(
+        lines, "",
+        "  No single block is responsible; the shortfall is spread across",
+        "  several. Adding them one at a time, largest first:"
+      )
+
+      running <- NULL
+
+      by_size <- names(sizes)[order(sizes, decreasing = TRUE)]
+
+      for (nm in by_size) {
+        running <- if (is.null(running)) id_sets[[nm]] else
+          intersect(running, id_sets[[nm]])
+        lines <- c(lines, sprintf("    + %-26s %d left", nm, length(running)))
+      }
+
+    }
+
+  }
+
+  lines
+
+}
+
+#' Compute sample overlap matrix between blocks
+#'
+#' @keywords internal
+#' @noRd
 .compute_overlap_matrix <- function(object) {
 
   blocks <- names(object$assays)
@@ -3036,7 +3570,9 @@ check_data <- function(object) {
 
     if (nrow(block) == 0 || ncol(block) == 0) next
 
-    d <- .safe_try(.build_block_diagnostics(block_name, block), NULL)
+    modality <- .block_modality(object, block_name)
+
+    d <- .safe_try(.build_block_diagnostics(block_name, block, modality), NULL)
 
     if (is.null(d)) next
 
@@ -3055,7 +3591,11 @@ check_data <- function(object) {
 
     transformations[[block_name]] <- tr
 
-    recipes[[block_name]] <- .build_recipe(block_name, d, tr, metadata = object$metadata)
+    recipes[[block_name]] <- .build_recipe(
+      block_name, d, tr,
+      metadata = object$metadata,
+      modality = modality
+    )
 
   }
 
@@ -3083,6 +3623,61 @@ check_data <- function(object) {
 
   overlap <- .compute_overlap_matrix(object)
 
+  # The pairwise matrix cannot answer the question an analysis actually asks,
+  # which is how many samples every block has in common at once.
+
+  cumulative <- .cumulative_overlap(object$assays)
+
+  shared_by_all <- if (nrow(cumulative) > 0)
+    cumulative$shared_after[nrow(cumulative)] else 0L
+
+  if (length(object$assays) > 1) {
+
+    smallest_pair <- min(overlap[row(overlap) != col(overlap)])
+
+    if (shared_by_all < 10) {
+
+      costly <- cumulative[cumulative$lost > 0, , drop = FALSE]
+      costly <- costly[order(-costly$lost), , drop = FALSE]
+
+      # Naming the top three when every block costs the same amount invents a
+      # culprit. Blame is only assigned when one block actually stands out.
+      blame <- if (nrow(costly) == 0) {
+        ""
+      } else if (nrow(costly) == 1 ||
+                 costly$lost[1] >= 2 * costly$lost[min(2, nrow(costly))]) {
+        sprintf(" Most of the loss comes from '%s'.", costly$block[1])
+      } else {
+        sprintf(paste(" The loss is spread across %d blocks rather than caused",
+                      "by one; see summary$cumulative_overlap."), nrow(costly))
+      }
+
+      errors <- c(errors, sprintf(
+        paste0("Only %d sample(s) are present in every block, which is too few",
+               " to analyse them together.%s"),
+        shared_by_all, blame))
+
+    } else if (shared_by_all < smallest_pair &&
+               (smallest_pair - shared_by_all) >=
+                 max(10, 0.05 * smallest_pair)) {
+
+      # The trap this exists for: every pair looks complete and the whole set
+      # is not. Someone reading the matrix alone would never see it coming,
+      # because a pairwise table cannot express an intersection of twenty.
+      # The comparison is against the smallest pair rather than a fixed
+      # fraction, since that is the number the matrix invites them to trust.
+
+      warnings <- c(warnings, sprintf(
+        paste("Blocks share %d to %d samples pairwise, but only %d are present",
+              "in every block at once. An analysis across all of them will use",
+              "those %d."),
+        smallest_pair, max(overlap[row(overlap) != col(overlap)]),
+        shared_by_all, shared_by_all))
+
+    }
+
+  }
+
   # ===========================================================================
   # Global summary
   # ===========================================================================
@@ -3105,6 +3700,8 @@ check_data <- function(object) {
     duplicated_features = nrow(details$duplicated_features),
     block_summary = struct$block_summary,
     overlap = overlap,
+    cumulative_overlap = cumulative,
+    shared_by_all = shared_by_all,
     quality_score = dataset_score,
     n_errors = length(errors),
     n_warnings = length(warnings)
