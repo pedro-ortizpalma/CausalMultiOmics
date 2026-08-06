@@ -131,7 +131,7 @@ clean
 #> Removed samples:               0
 #> Removed features:              0
 #> Plots:                         0
-#> Runtime:                       0.03 s
+#> Runtime:                       0.06 s
 ```
 
 ## Building evidence
@@ -162,7 +162,7 @@ results
 #> Causal paths:                  2
 #> Plots:                         0
 #> Tables:                        15
-#> Runtime:                       0.96 s
+#> Runtime:                       2.57 s
 ```
 
 Every relationship carries the identification strategy that would
@@ -174,12 +174,12 @@ high it scores.
 results$graph$edges[, c("source", "target", "level_label",
                         "identification", "evidence_score")]
 #>   source target   level_label identification evidence_score
-#> 1     P1     P2 associational     adjustment          29.18
-#> 2     G1     G3 associational     adjustment          13.39
+#> 1     P1     P2 associational     adjustment          28.23
+#> 2     G1     G3 associational     adjustment          12.95
 #> 3     G2  group associational           none          10.87
 #> 4     P1  group associational           none           5.60
 #> 5     P2  group associational           none           5.39
-#> 6     G3  group associational           none           3.09
+#> 6     G3  group associational           none           2.99
 #> 7     G1  group associational           none           2.69
 ```
 
@@ -188,6 +188,60 @@ each method reported on its own before anything was merged.
 
 ``` r
 explain(results, "P1")
+```
+
+## What stops a number meaning more than it should
+
+Four checks run over the merged graph. None of them changes an estimate;
+they change what may be claimed about one, and what it is ranked by.
+
+**The quantity each method measured.** Only quantities of the same
+family are pooled. Averaging a log hazard ratio with a correlation
+coefficient produced a headline number in no units at all, and it was
+the number the report led with.
+
+**A causal structure, if you have one.** A DAG is a claim about how the
+world works, not something recoverable from a correlation matrix, so it
+has to come from you. Supplying one turns “we adjusted for age” into a
+verdict:
+
+``` r
+structure <- data.frame(
+  from = c("age", "age", "protein", "inflammation"),
+  to   = c("protein", "disease", "inflammation", "disease")
+)
+
+# Adjusting for the mediator removes part of the effect being measured.
+check_dag(structure, "protein", "disease", adjusted = c("age", "inflammation"))
+
+analyze(clean, outcome = "group", dag = structure)
+```
+
+Adjusting for a mediator or a collider makes an estimate worse than
+doing nothing. Both look like diligence, and only a declared structure
+tells them apart.
+
+**How much of it was measured.** `data_quality` is the share of the data
+behind a relationship that was measured rather than reconstructed.
+Imputation fills gaps with plausible numbers, and from that moment
+nothing downstream can tell a measurement from an estimate: a variable
+that arrived a quarter empty reports the same precision as one fully
+observed. Only imputed values count against it, since rows dropped for
+being incomplete cost sample size and that is already in the precision
+score.
+
+**Whether the picture repeats.** `result$consensus` is the graph across
+resamples rather than in the one sample collected. Per-edge stability
+answers “would this relationship come back?” one at a time; it cannot
+answer “would this picture come back?”. It also says what it is not: a
+bootstrap resamples the people who were measured, so it reports how much
+the result depends on which of them ended up in the study, never whether
+a relationship is real.
+
+``` r
+results <- analyze(clean, outcome = "group", effort = "standard")
+
+results$consensus
 ```
 
 `counterfactual()` states the findings in the units the variable was
@@ -238,6 +292,9 @@ devtools::test()
 devtools::check()
 ```
 
-`tests/manual/test_all.R` is a standalone development harness that
-exercises the internals and prints what a user would see at the console.
-It is not part of the built package.
+`tests/manual/` holds two standalone walkthroughs that drive the package
+the way a user would and print everything they would see at the console.
+`walkthrough_simple.R` runs on simulated data; `walkthrough_complex.R`
+runs on the NHANES 1999-2006 exposome release, which is not
+redistributed here — `tests/manual/test_data/SOURCE.md` says where to
+get it. Neither is part of the built package.
