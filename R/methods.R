@@ -1606,6 +1606,96 @@ summary.EvidenceEdge <- function(object, ...) {
 }
 
 # =============================================================================
+# ModuleGraph
+# =============================================================================
+
+#' Print the groups of features that move together
+#'
+#' @param x A \code{ModuleGraph}.
+#' @param ... Ignored.
+#'
+#' @return The object, invisibly.
+#'
+#' @export
+
+print.ModuleGraph <- function(x, ...) {
+
+  cat("\n")
+  cat("ModuleGraph\n")
+  cat("===========\n\n")
+
+  if (!is.data.frame(x$modules) || nrow(x$modules) == 0) {
+
+    cat(paste(strwrap(if (length(x$notes) > 0) x$notes[1] else
+      "No modules were found.", width = 60, prefix = "  "),
+      collapse = "\n"), "\n\n", sep = "")
+
+    return(invisible(x))
+
+  }
+
+  cat(sprintf("%-28s %d\n", "Modules:", nrow(x$modules)))
+  cat(sprintf("%-28s %d\n", "Coherent enough to use:", sum(x$modules$coherent)))
+  cat(sprintf("%-28s %d\n", "Spanning several blocks:",
+              sum(x$modules$cross_block)))
+  cat(sprintf("%-28s %s at |r| >= %s\n", "Grouped by:",
+              .report_or(x$method, "?"), fmt_num(x$height, 2)))
+
+  cat("\nWhat each one is made of\n")
+  cat(strrep("-", 60), "\n", sep = "")
+
+  for (i in seq_len(nrow(x$modules))) {
+
+    m <- x$modules[i, ]
+
+    cat(sprintf("  %-12s %2d feature(s), %s%s\n", m$module, m$size,
+                m$composition,
+                if (m$cross_block) "  [crosses blocks]" else ""))
+
+    cat(sprintf("               summarised by its first component, which\n"))
+    cat(sprintf("               carries %s of its variance%s\n",
+                if (is.finite(m$variance_explained))
+                  sprintf("%.0f%%", 100 * m$variance_explained) else "?",
+                if (!m$coherent) " - too little to stand for it" else ""))
+
+    cat(sprintf("               %s\n", m$members))
+
+  }
+
+  if (is.data.frame(x$edges) && nrow(x$edges) > 0) {
+
+    cat("\nEach module against the outcome\n")
+    cat(strrep("-", 60), "\n", sep = "")
+
+    show <- x$edges[, c("module", "estimate", "ci_lower", "ci_upper",
+                        "fdr", "n", "coherent")]
+
+    names(show) <- c("module", "estimate", "CI low", "CI high", "FDR", "n",
+                     "coherent")
+
+    print(show, row.names = FALSE, digits = 3)
+
+  }
+
+  if (length(x$notes) > 0) {
+
+    cat("\nHow to read this\n")
+    cat(strrep("-", 60), "\n", sep = "")
+
+    for (nt in x$notes) {
+      cat(paste(strwrap(nt, width = 60, prefix = "  "), collapse = "\n"),
+          "\n", sep = "")
+    }
+
+  }
+
+  cat("\n")
+
+  invisible(x)
+
+}
+
+# =============================================================================
 # ConsensusGraph
 # =============================================================================
 
@@ -4823,6 +4913,139 @@ pre.flow{font-size:12.5px;line-height:1.4}
 
 }
 
+#' Groups of variables that are really one thing measured several times
+#'
+#' @keywords internal
+#' @noRd
+.html_result_modules <- function(object, plot_width, plot_height, plot_res) {
+
+  mg <- object$modules
+
+  header <- "<section id='modules'><h2>Things measured many times</h2>"
+
+  if (is.null(mg) || !is.data.frame(mg$modules) || nrow(mg$modules) == 0) {
+
+    return(paste0(
+      header,
+      "<p class='lead'>Measured variables are often not separate things. ",
+      "Fifty transcripts that rise and fall together are one process ",
+      "measured fifty times, and reporting fifty findings about it would ",
+      "overstate what was found.</p>",
+      "<div class='callout'><h4>Nothing here needed grouping</h4><p>",
+      .html_escape(if (length(mg$notes) > 0) mg$notes[1] else
+        "No groups of variables moved together closely enough to be treated as one."),
+      "</p></div></section>"
+    ))
+
+  }
+
+  mods <- mg$modules
+
+  figure <- if (!is.null(object$plots$modules)) {
+
+    uri <- .html_plot_uri(object$plots$modules, plot_width,
+                          max(plot_height, 420), plot_res)
+
+    if (is.null(uri)) "" else paste0(
+      "<figure><img loading='lazy' src='", uri,
+      "' alt='Each group beside the variables it summarises'><figcaption>",
+      "The diamond is the group taken as one thing; the grey dots are its ",
+      "members tested one at a time. Dots scattered on both sides of zero ",
+      "mean the group is averaging over variables that disagree.",
+      "</figcaption></figure>")
+
+  } else ""
+
+  cards <- paste0(vapply(seq_len(nrow(mods)), function(i) {
+
+    m <- mods[i, ]
+
+    hit <- if (is.data.frame(mg$edges))
+      mg$edges[mg$edges$module == m$module, , drop = FALSE] else data.frame()
+
+    relation <- if (nrow(hit) == 1 && is.finite(hit$fdr)) {
+
+      paste0("<p>Taken as one thing, it ",
+             if (hit$fdr < 0.05)
+               paste0("<b>is related to ", .html_escape(object$outcome$name),
+                      "</b> (", if (hit$estimate >= 0) "higher" else "lower",
+                      " group score goes with a higher outcome, FDR ",
+                      format(signif(hit$fdr, 2)), ").")
+             else paste0("shows no relationship with ",
+                         .html_escape(object$outcome$name),
+                         " (FDR ", format(signif(hit$fdr, 2)), ")."),
+             "</p>")
+
+    } else ""
+
+    paste0(
+      "<div class='finding'>",
+      "<div class='finding-head'><span class='finding-title'>",
+      .html_escape(m$module), " &mdash; ", m$size, " variables</span>",
+      if (m$cross_block)
+        "<span class='badge-id strong'>spans several kinds of measurement</span>"
+      else "",
+      "</div>",
+
+      "<p class='muted'>", .html_escape(m$composition), "</p>",
+
+      "<p>A single summary of this group captures <b>",
+      if (is.finite(m$variance_explained))
+        sprintf("%.0f%%", 100 * m$variance_explained) else "?",
+      "</b> of how its members vary",
+      if (!m$coherent)
+        paste0(", which is too little for the summary to stand for them. ",
+               "The figures below describe one direction through a cloud ",
+               "rather than a shared process") else "",
+      ".</p>",
+
+      relation,
+
+      "<p class='muted'>Members: ", .html_escape(m$members),
+      if (m$size > 8) ", &hellip;" else "", "</p>",
+
+      "</div>"
+    )
+
+  }, character(1)), collapse = "")
+
+  paste0(
+    header,
+
+    "<p class='lead'>Measured variables are often not separate things. ",
+    "Variables that rise and fall together are usually one underlying ",
+    "process measured several times over. Grouping them and testing the ",
+    "group asks the question directly, instead of asking it once per ",
+    "variable and reporting the answer as many findings.</p>",
+
+    "<div class='cards'>",
+    .html_card("Groups found", as.character(nrow(mods))),
+    .html_card("Hold together well", as.character(sum(mods$coherent)),
+               "a summary represents them"),
+    .html_card("Span measurement types", as.character(sum(mods$cross_block)),
+               "candidates for a mechanism"),
+    "</div>",
+
+    figure,
+
+    cards,
+
+    "<div class='callout'><h4>These are not extra evidence</h4>",
+    "<p>A group and the variables inside it are the same measurements at two ",
+    "resolutions. If a group and its members both appear in this report they ",
+    "agree because they are made of each other, and neither one confirms the ",
+    "other. Count the finding once.</p>",
+    "<p class='muted'>Groups were formed by clustering variables on how ",
+    "strongly they move together, at a correlation of ",
+    .html_escape(sprintf("%.2f", .report_or(mg$height, NA))),
+    " or more. Variables that move independently were left alone.</p>",
+    "</div>",
+
+    "</section>"
+  )
+
+}
+
 #' Would this report look the same with a different set of people?
 #'
 #' The single most useful thing a reader can be told about a list of findings
@@ -5584,6 +5807,7 @@ explain(result, \"NAME\")              # everything known about one variable</co
     findings = .html_result_findings(object),
     actionable = .html_result_actionable(object),
     pathways = .html_result_pathways(object),
+    modules = .html_result_modules(object, plot_width, plot_height, plot_res),
     consensus = .html_result_consensus(object, plot_width, plot_height,
                                        plot_res),
     network = .html_result_network(object, plot_width, plot_height, plot_res),
@@ -5605,6 +5829,7 @@ explain(result, \"NAME\")              # everything known about one variable</co
   labels <- c(
     overview = "Summary", howto = "How to read this", findings = "Findings",
     actionable = "What to change", pathways = "Chains",
+    modules = "Things measured many times",
     consensus = "Would this repeat?",
     network = "The big picture",
     importance = "What matters most", methods = "How it was done",

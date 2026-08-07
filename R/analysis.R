@@ -3289,6 +3289,32 @@ analyze <- function(object,
   }
 
   # ---------------------------------------------------------------------------
+  # The same data at the resolution between a feature and a block
+  # ---------------------------------------------------------------------------
+
+  modules <- .safe_try(
+    .build_module_graph(x, outcome_spec, covariate_frame,
+                        aligned$feature_block),
+    ModuleGraph()
+  )
+
+  if (is.data.frame(modules$modules) && nrow(modules$modules) > 0) {
+
+    coherent <- sum(modules$modules$coherent)
+    crossing <- sum(modules$modules$cross_block)
+
+    logs <- c(logs, sprintf(
+      "Modules: %d group(s) of features move together; %d cohere well enough to summarise, %d span more than one block.",
+      nrow(modules$modules), coherent, crossing))
+
+    if (!isTRUE(quiet)) {
+      cat(sprintf("  Modules: %d found, %d coherent, %d crossing blocks.\n",
+                  nrow(modules$modules), coherent, crossing))
+    }
+
+  }
+
+  # ---------------------------------------------------------------------------
   # Resampling: would these relationships survive a different sample?
   # ---------------------------------------------------------------------------
 
@@ -3498,6 +3524,7 @@ analyze <- function(object,
   result$causal_paths <- graph$paths
   result$importance <- importance
   result$consensus <- consensus
+  result$modules <- modules
 
   result$network <- list(
     communities = graph$communities,
@@ -3562,7 +3589,7 @@ analyze <- function(object,
 
     result$plots <- .safe_try(
       .build_analysis_plots(graph, importance, block_evidence,
-                            outcome_spec$name, consensus),
+                            outcome_spec$name, consensus, modules, evidence),
       list()
     )
 
@@ -3803,7 +3830,8 @@ annotate_evidence <- function(result, annotations, weight = 0.1) {
 #' @keywords internal
 #' @noRd
 .build_analysis_plots <- function(graph, importance, block_evidence = NULL,
-                                  outcome_name = NULL, consensus = NULL) {
+                                  outcome_name = NULL, consensus = NULL,
+                                  modules = NULL, evidence = NULL) {
 
   plots <- list()
 
@@ -3858,6 +3886,14 @@ annotate_evidence <- function(result, annotations, weight = 0.1) {
 
     plots$consensus <- .safe_try(
       .plot_consensus(consensus, .report_or(outcome_name, "the outcome")), NULL)
+
+  }
+
+  if (!is.null(modules) && !is.null(evidence)) {
+
+    plots$modules <- .safe_try(
+      .plot_modules(modules, evidence,
+                    .report_or(outcome_name, "the outcome")), NULL)
 
   }
 
@@ -4537,6 +4573,390 @@ annotate_evidence <- function(result, annotations, weight = 0.1) {
   }
 
   edges
+
+}
+
+# =============================================================================
+# The resolution between a feature and a block
+# =============================================================================
+#
+# Measured variables are rarely independent things. Fifty transcripts moving
+# together are one process measured fifty times: testing each separately
+# answers a question nobody asked, pays the multiplicity penalty fifty times,
+# and reports fifty findings where there is one.
+#
+# The two resolutions already here are the feature and the block. The block
+# is whatever the user called a block, which is a decision about how the data
+# arrived rather than about biology. The missing level is the one the data
+# can define for itself.
+#
+# Nothing here is additional evidence. It is the same measurements
+# re-expressed, so a module agreeing with its own members is arithmetic, and
+# every part of this has to say so rather than let it read as replication.
+# =============================================================================
+
+#' Group features that move together
+#'
+#' Correlation, not the evidence graph. A community detected on the evidence
+#' graph groups features that each have a link to the outcome, which they can
+#' do while being uncorrelated with each other; the first principal component
+#' of such a group summarises nothing. A module has to be a set of variables
+#' that vary together before summarising it means anything.
+#'
+#' @param x The analysis matrix.
+#' @param min_correlation Features join a module at this average correlation.
+#' @param min_size Modules smaller than this are left as individual features.
+#' @param max_features Above this the correlation matrix is too large to be
+#'   worth computing, and the modules would be too many to read.
+#'
+#' @return A named integer vector of module assignments, or \code{NULL}.
+#' @keywords internal
+#' @noRd
+.detect_modules <- function(x, min_correlation = 0.5, min_size = 3L,
+                            max_features = 2000L) {
+
+  if (!is.matrix(x) && !is.data.frame(x)) return(NULL)
+
+  x <- as.matrix(x)
+
+  varying <- apply(x, 2, function(col) {
+    col <- col[is.finite(col)]
+    length(col) > 2 && stats::sd(col) > 0
+  })
+
+  x <- x[, varying, drop = FALSE]
+
+  # Enough columns to form one module, not twice that: five variables that
+  # are all one thing is a perfectly good answer, and requiring room for two
+  # modules threw it away.
+
+  if (ncol(x) < min_size || ncol(x) > max_features) return(NULL)
+
+  correlation <- .safe_try(
+    stats::cor(x, use = "pairwise.complete.obs"), NULL)
+
+  if (is.null(correlation)) return(NULL)
+
+  correlation[!is.finite(correlation)] <- 0
+
+  # Distance on the absolute correlation: two features that move exactly
+  # opposite each other are measuring one thing, and the sign is settled
+  # later when the module gets a direction.
+
+  tree <- .safe_try(
+    stats::hclust(stats::as.dist(1 - abs(correlation)), method = "average"),
+    NULL)
+
+  if (is.null(tree)) return(NULL)
+
+  membership <- stats::cutree(tree, h = 1 - min_correlation)
+
+  sizes <- table(membership)
+
+  keep <- names(sizes)[sizes >= min_size]
+
+  if (length(keep) == 0) return(NULL)
+
+  membership[!(as.character(membership) %in% keep)] <- NA_integer_
+
+  # Renumbered so the labels run 1..k with no gaps: "module 7" out of four
+  # modules is a puzzle for the reader and a bug report waiting to happen.
+
+  present <- sort(unique(stats::na.omit(membership)))
+  renumbered <- match(membership, present)
+  names(renumbered) <- names(membership)
+
+  renumbered
+
+}
+
+#' Summarise each module by the one variable that best represents it
+#'
+#' The first principal component, on standardised features so that a module
+#' is not dominated by whichever of its members happens to have the largest
+#' units.
+#'
+#' Its sign is arbitrary as \code{prcomp} returns it, which would make the
+#' direction of every module's relationship with the outcome a coin flip. It
+#' is fixed here so that a higher score means higher on the majority of the
+#' module's features, which is the only reading that lets the direction be
+#' reported at all.
+#'
+#' @param x The analysis matrix.
+#' @param membership Module assignments from \code{.detect_modules()}.
+#'
+#' @return A list with the score matrix and, per module, the share of its own
+#'   variance the score accounts for.
+#' @keywords internal
+#' @noRd
+.module_latent <- function(x, membership) {
+
+  x <- as.matrix(x)
+
+  modules <- sort(unique(stats::na.omit(membership)))
+
+  if (length(modules) == 0) return(NULL)
+
+  scores <- matrix(NA_real_, nrow = nrow(x), ncol = length(modules),
+                   dimnames = list(rownames(x), paste0("module_", modules)))
+
+  explained <- stats::setNames(rep(NA_real_, length(modules)),
+                               colnames(scores))
+
+  for (i in seq_along(modules)) {
+
+    members <- names(membership)[which(membership == modules[i])]
+    members <- intersect(members, colnames(x))
+
+    if (length(members) < 2) next
+
+    block <- x[, members, drop = FALSE]
+
+    complete <- stats::complete.cases(block)
+
+    if (sum(complete) < 10) next
+
+    pca <- .safe_try(
+      stats::prcomp(block[complete, , drop = FALSE], center = TRUE,
+                    scale. = TRUE),
+      NULL)
+
+    if (is.null(pca)) next
+
+    pc1 <- drop(pca$x[, 1])
+
+    # Sign: a component is defined up to a sign, so without this the
+    # direction reported for a module is whichever way prcomp happened to
+    # point. Aligned to the average of its own standardised members.
+
+    average <- rowMeans(scale(block[complete, , drop = FALSE]))
+
+    if (isTRUE(stats::cor(pc1, average) < 0)) pc1 <- -pc1
+
+    # Scaled to unit variance, which is what makes the module's coefficient
+    # mean the same thing as a feature's. A raw first component has a
+    # standard deviation of roughly the square root of its eigenvalue, so a
+    # ten-feature module arrives about three times wider than its own members
+    # and its coefficient comes out three times smaller for no reason but
+    # arithmetic. Read side by side, that looks like the module disagreeing
+    # with the features it is made of.
+
+    spread <- stats::sd(pc1)
+
+    if (is.finite(spread) && spread > 0) pc1 <- pc1 / spread
+
+    scores[complete, i] <- pc1
+
+    explained[i] <- pca$sdev[1]^2 / sum(pca$sdev^2)
+
+  }
+
+  list(scores = scores, explained = explained)
+
+}
+
+#' Test each module against the outcome the way a feature is tested
+#'
+#' @param latent The score matrix.
+#' @param outcome The resolved outcome.
+#' @param covariates Covariate frame, or \code{NULL}.
+#'
+#' @return A data.frame of module-level estimates.
+#' @keywords internal
+#' @noRd
+.module_edges <- function(latent, outcome, covariates = NULL) {
+
+  binary <- identical(outcome$type, "binary")
+
+  rows <- list()
+
+  for (m in colnames(latent)) {
+
+    frame <- data.frame(.y = outcome$values, .x = latent[, m])
+
+    if (!is.null(covariates)) frame <- cbind(frame, covariates)
+
+    frame <- frame[stats::complete.cases(frame), , drop = FALSE]
+
+    if (nrow(frame) < 10 || stats::sd(frame$.x) == 0) next
+
+    fit <- .safe_try(
+      if (binary) stats::glm(.y ~ ., data = frame, family = stats::binomial())
+      else stats::lm(.y ~ ., data = frame),
+      NULL)
+
+    if (is.null(fit)) next
+
+    coefs <- .safe_try(summary(fit)$coefficients, NULL)
+
+    if (is.null(coefs) || !(".x" %in% rownames(coefs))) next
+
+    estimate <- coefs[".x", 1]
+    se <- coefs[".x", 2]
+
+    rows[[length(rows) + 1L]] <- data.frame(
+      module = m,
+      estimate = estimate,
+      se = se,
+      ci_lower = estimate - 1.96 * se,
+      ci_upper = estimate + 1.96 * se,
+      p_value = coefs[".x", 4],
+      n = nrow(frame),
+      direction = if (estimate >= 0) "positive" else "negative",
+      stringsAsFactors = FALSE
+    )
+
+  }
+
+  if (length(rows) == 0) return(data.frame())
+
+  out <- do.call(rbind, rows)
+  out$fdr <- stats::p.adjust(out$p_value, method = "BH")
+  out <- out[order(out$p_value), ]
+  rownames(out) <- NULL
+
+  out
+
+}
+
+#' Assemble the module-level reading of the same data
+#'
+#' @param x The analysis matrix.
+#' @param outcome The resolved outcome.
+#' @param covariates Covariate frame, or \code{NULL}.
+#' @param feature_block Which block each feature came from.
+#' @param min_correlation Passed to \code{.detect_modules()}.
+#' @param min_variance_explained Below this a module's first component is not
+#'   a summary of it, and the module is reported but not treated as coherent.
+#'
+#' @return A \code{ModuleGraph}.
+#' @keywords internal
+#' @noRd
+.build_module_graph <- function(x, outcome, covariates = NULL,
+                                feature_block = list(),
+                                min_correlation = 0.5,
+                                min_variance_explained = 0.5) {
+
+  out <- ModuleGraph()
+  out$method <- "average-linkage clustering on absolute correlation"
+  out$height <- min_correlation
+
+  membership <- .safe_try(.detect_modules(x, min_correlation), NULL)
+
+  if (is.null(membership) || all(is.na(membership))) {
+
+    out$notes <- paste(
+      "No group of features moved together closely enough to be summarised",
+      "as one thing, so every relationship in this analysis is between the",
+      "outcome and a single variable.")
+
+    return(out)
+
+  }
+
+  latent <- .safe_try(.module_latent(x, membership), NULL)
+
+  if (is.null(latent)) {
+    out$notes <- "Modules were found but could not be summarised."
+    return(out)
+  }
+
+  usable <- colSums(!is.na(latent$scores)) > 0
+
+  latent$scores <- latent$scores[, usable, drop = FALSE]
+  latent$explained <- latent$explained[usable]
+
+  if (ncol(latent$scores) == 0) {
+    out$notes <- "Modules were found but could not be summarised."
+    return(out)
+  }
+
+  out$membership <- membership
+  out$latent <- latent$scores
+
+  modules <- sort(unique(stats::na.omit(membership)))
+
+  rows <- lapply(seq_along(modules), function(i) {
+
+    name <- paste0("module_", modules[i])
+
+    if (!(name %in% colnames(latent$scores))) return(NULL)
+
+    members <- names(membership)[which(membership == modules[i])]
+
+    blocks <- unlist(feature_block[members], use.names = FALSE)
+    blocks <- blocks[!is.na(blocks)]
+
+    composition <- if (length(blocks) == 0) "unknown" else {
+      counts <- sort(table(blocks), decreasing = TRUE)
+      paste(sprintf("%d%% %s", round(100 * as.integer(counts) / length(blocks)),
+                    names(counts)), collapse = ", ")
+    }
+
+    explained <- unname(latent$explained[name])
+
+    data.frame(
+      module = name,
+      size = length(members),
+      blocks = length(unique(blocks)),
+      composition = composition,
+
+      # A module spanning layers is the interesting case: it is the only
+      # thing here that could be a mechanism rather than a measurement
+      # artefact of one platform.
+      cross_block = length(unique(blocks)) > 1,
+
+      variance_explained = explained,
+
+      # Below this the first component is not a summary of the module, it is
+      # one direction through a cloud. Reported rather than hidden, because a
+      # module that failed to cohere is itself a finding about the data.
+      coherent = isTRUE(explained >= min_variance_explained),
+
+      members = paste(utils::head(members, 8), collapse = ", "),
+      stringsAsFactors = FALSE
+    )
+
+  })
+
+  out$modules <- do.call(rbind, Filter(Negate(is.null), rows))
+
+  if (!is.null(out$modules)) {
+    out$modules <- out$modules[order(-out$modules$size), ]
+    rownames(out$modules) <- NULL
+  }
+
+  edges <- .safe_try(.module_edges(latent$scores, outcome, covariates),
+                     data.frame())
+
+  if (nrow(edges) > 0 && !is.null(out$modules)) {
+
+    edges <- merge(
+      edges,
+      out$modules[, c("module", "size", "blocks", "cross_block",
+                      "variance_explained", "coherent")],
+      by = "module", all.x = TRUE)
+
+    edges <- edges[order(edges$p_value), ]
+    rownames(edges) <- NULL
+
+  }
+
+  out$edges <- edges
+
+  out$notes <- c(
+    sprintf(paste("%d module(s) covering %d of %d features. The rest move",
+                  "independently enough that summarising them would lose",
+                  "what makes them different."),
+            nrow(.report_or(out$modules, data.frame())),
+            sum(!is.na(membership)), length(membership)),
+
+    paste("A module and its own members are the same measurements at two",
+          "resolutions, not two findings. If both appear, they agree by",
+          "construction and neither confirms the other.")
+  )
+
+  out
 
 }
 
@@ -7868,6 +8288,102 @@ print.CMOCounterfactual <- function(x, ...) {
     span = span,
     counts = counts
   )
+
+}
+
+#' Each module beside the members it stands for
+#'
+#' A bar of module-level estimates would show the summaries and hide what
+#' they are summaries of. The question a reader has about a module is whether
+#' it represents its members or averages over a disagreement among them, and
+#' that is answerable only by drawing both.
+#'
+#' @param modules A \code{ModuleGraph}.
+#' @param evidence The integrated edges, for the members' own estimates.
+#' @param outcome_name Name of the outcome.
+#'
+#' @return A recorded plot, or NULL when there is nothing to draw.
+#' @noRd
+.plot_modules <- function(modules, evidence, outcome_name) {
+
+  if (!is.data.frame(modules$edges) || nrow(modules$edges) == 0) return(NULL)
+
+  member_estimate <- stats::setNames(
+    vapply(evidence, function(e) .report_or(e$estimate, NA_real_), numeric(1)),
+    vapply(evidence, function(e) if (identical(e$target, outcome_name))
+      e$source else NA_character_, character(1))
+  )
+
+  member_estimate <- member_estimate[!is.na(names(member_estimate))]
+
+  edges <- modules$edges[order(modules$edges$estimate), , drop = FALSE]
+
+  members_of <- lapply(edges$module, function(m) {
+    k <- as.integer(sub("^module_", "", m))
+    names(modules$membership)[which(modules$membership == k)]
+  })
+
+  values <- lapply(members_of, function(f) {
+    v <- member_estimate[intersect(f, names(member_estimate))]
+    v[is.finite(v)]
+  })
+
+  span <- range(c(edges$ci_lower, edges$ci_upper, unlist(values), 0),
+                na.rm = TRUE)
+
+  if (!all(is.finite(span))) return(NULL)
+
+  .safe_record(function() {
+
+    graphics::par(mar = c(5.8, 8, 3, 14))
+
+    y <- seq_len(nrow(edges))
+
+    graphics::plot(
+      NA, xlim = span, ylim = c(0.5, nrow(edges) + 0.5),
+      xlab = sprintf("Change in %s per standard deviation", outcome_name),
+      ylab = "", yaxt = "n",
+      main = "Each module and the features it summarises"
+    )
+
+    graphics::abline(v = 0, col = "#BBBBBB", lty = 2)
+
+    graphics::axis(2, at = y, labels = edges$module, las = 1, cex.axis = 0.8)
+
+    for (i in y) {
+
+      # Members first, so the module marker sits on top of its own evidence
+      # rather than behind it.
+      if (length(values[[i]]) > 0) {
+        graphics::points(values[[i]], rep(i, length(values[[i]])),
+                         pch = 19, cex = 0.7,
+                         col = grDevices::adjustcolor("#999999", 0.7))
+      }
+
+      graphics::segments(edges$ci_lower[i], i, edges$ci_upper[i], i,
+                         col = "#4C72B0", lwd = 2)
+
+      graphics::points(edges$estimate[i], i, pch = 23, cex = 1.4, lwd = 2,
+                       bg = if (isTRUE(edges$coherent[i])) "#4C72B0" else "white",
+                       col = "#4C72B0")
+
+      graphics::text(
+        graphics::par("usr")[2], i,
+        sprintf("  %d feature(s), %s%s", edges$size[i],
+                if (is.finite(edges$variance_explained[i]))
+                  sprintf("%.0f%% captured", 100 * edges$variance_explained[i])
+                else "?",
+                if (isTRUE(edges$cross_block[i])) ", crosses blocks" else ""),
+        adj = 0, xpd = NA, cex = 0.62, col = "#555555")
+
+    }
+
+    graphics::mtext(
+      paste("Diamond is the module; grey dots are its members tested one at a",
+            "time. A hollow diamond did not cohere."),
+      side = 1, line = 4.4, cex = 0.68, col = "#555555")
+
+  })
 
 }
 

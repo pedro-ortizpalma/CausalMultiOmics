@@ -1,5 +1,39 @@
 # CausalMultiOmics 0.1.0
 
+## The resolution between a feature and a block
+
+* `result$modules` is a `ModuleGraph`: groups of variables that move together,
+  summarised and tested as one thing. Fifty transcripts rising and falling
+  together are one process measured fifty times; testing each separately
+  answers a question nobody asked, pays the multiplicity penalty fifty times,
+  and reports fifty findings where there is one.
+* Modules come from the correlation between features, not from the evidence
+  graph. A community detected on the evidence graph groups features that each
+  have a link to the outcome, which they can do while being uncorrelated with
+  each other, and the first principal component of such a group summarises
+  nothing.
+* Each module is represented by its first principal component, scaled to unit
+  variance so its coefficient means what a feature's coefficient means. A raw
+  component is about the square root of its eigenvalue wide, so a ten-feature
+  module arrived three times wider than its own members and its estimate came
+  out three times smaller for no reason but arithmetic — which, read beside
+  the members, looked like the module disagreeing with what it is made of.
+* The component's sign is fixed against the average of the module's own
+  members. Left as `prcomp` returns it, the direction reported for every
+  module is a coin flip.
+* `variance_explained` says how much of a module the summary actually
+  captures, and a module below the threshold is reported but marked as not
+  cohering. Its first component is one direction through a cloud rather than
+  a shared process, and that is itself a finding about the data.
+* Modules spanning several blocks are flagged. They are the only thing at
+  this resolution that could be a mechanism rather than an artefact of one
+  platform.
+* A module and its own members are the same measurements at two resolutions,
+  not two findings. They agree by construction and neither confirms the
+  other; the object, the printed output and the report all say so.
+* A new figure draws each module beside the members it stands for, so a
+  reader can see whether it represents them or averages over a disagreement.
+
 ## Does one number describe everybody?
 
 * Every estimate is an average over the people measured, and an average says

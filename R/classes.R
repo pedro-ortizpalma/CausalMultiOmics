@@ -1294,6 +1294,71 @@ ConsensusGraph <- function() {
 }
 
 # =============================================================================
+# ModuleGraph
+# =============================================================================
+
+#' Create a ModuleGraph object
+#'
+#' The same evidence read at the resolution between a single feature and a
+#' whole block.
+#'
+#' Measured variables are rarely independent things. Fifty transcripts moving
+#' together are one biological process measured fifty times, and testing each
+#' separately answers a question nobody asked while paying a multiplicity
+#' penalty fifty times over. A module is that process, and its first
+#' principal component is the closest thing to measuring it directly.
+#'
+#' The results here are not additional evidence. They are the same
+#' measurements re-expressed, so a module and its members agreeing is
+#' arithmetic rather than replication, and anything reading this has to say
+#' so.
+#'
+#' @return A ModuleGraph object.
+#' @keywords internal
+
+ModuleGraph <- function() {
+
+  structure(
+
+    list(
+
+      # One row per module: how big, which blocks it draws on, and how much
+      # of its own variance the summary actually captures.
+
+      modules = data.frame(),
+
+      # feature -> module, named by feature.
+
+      membership = character(),
+
+      # samples x modules. The latent variable itself, on the scale of a
+      # standardised score, with its sign fixed so that "higher" means
+      # higher on the features it summarises.
+
+      latent = NULL,
+
+      # Each module's relationship with the outcome, from the same model the
+      # features get.
+
+      edges = data.frame(),
+
+      # How the modules were derived, and at what correlation.
+
+      method = NA_character_,
+
+      height = NA_real_,
+
+      notes = character()
+
+    ),
+
+    class = "ModuleGraph"
+
+  )
+
+}
+
+# =============================================================================
 # CMOResult
 # =============================================================================
 
@@ -1351,6 +1416,11 @@ CMOResult <- function() {
       # runs, which is from effort = "standard" upward.
 
       consensus = NULL,
+
+      # The same evidence between the feature and the block: groups of
+      # features that move together, summarised and tested as one thing.
+
+      modules = NULL,
 
       # -----------------------------------------------------------------------
       # Assessment
