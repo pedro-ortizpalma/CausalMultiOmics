@@ -1294,6 +1294,106 @@ ConsensusGraph <- function() {
 }
 
 # =============================================================================
+# Hypothesis
+# =============================================================================
+
+#' Create a Hypothesis object
+#'
+#' A \code{CMOResult} is a body of evidence. A \code{Hypothesis} is one claim
+#' taken out of it, carrying everything needed to decide whether to act on
+#' it, argue with it, or go and settle it.
+#'
+#' The distinction matters because a graph of forty scored relationships is
+#' not a scientific statement. It is material from which statements can be
+#' made, and the making is where the judgement lives: which relationship, at
+#' what strength, under which assumptions, and what would have to be observed
+#' for it to be wrong.
+#'
+#' The last of those is what separates this from a result. A finding says
+#' what was seen; a hypothesis says what would change its author's mind. Both
+#' are derived here from what the engine already knows about the
+#' relationship, so the answer is specific to it rather than a paragraph of
+#' generic caution.
+#'
+#' @return A Hypothesis object.
+#'
+#' @section Why this topic has an explicit name:
+#'
+#' The constructor and the \code{hypothesis()} function that builds one differ
+#' only in case, and on a case-insensitive filesystem their generated
+#' \code{.Rd} files are the same file: whichever roxygen writes second wins
+#' and the other is silently left undocumented.
+#'
+#' @rdname Hypothesis-class
+#' @keywords internal
+Hypothesis <- function() {
+
+  structure(
+
+    list(
+
+      # The claim, written out, at the strength the evidence supports and no
+      # higher. "Associated with" and "causes" are different sentences and
+      # the object is not free to choose between them.
+
+      claim = NA_character_,
+
+      source = NA_character_,
+
+      target = NA_character_,
+
+      estimate = NA_real_,
+
+      ci = c(NA_real_, NA_real_),
+
+      quantity = NA_character_,
+
+      quantity_label = NA_character_,
+
+      direction = NA_character_,
+
+      # What kind of statement this is allowed to be, and why.
+
+      grade = NA_character_,
+
+      grade_reasons = character(),
+
+      # The case for, the case against, and the thing that would end the
+      # argument. Kept apart on purpose: a reader who sees only the first is
+      # being sold something.
+
+      supports = character(),
+
+      threatens = character(),
+
+      settles = character(),
+
+      assumptions = character(),
+
+      identification = NA_character_,
+
+      # Enough to run the same test again on a different cohort: which
+      # outcome, which covariates, which model, which block.
+
+      protocol = list(),
+
+      # Where it came from, so a number in a manuscript can be traced back.
+
+      provenance = list(),
+
+      # Filled in by test_hypothesis() when the claim is taken somewhere new.
+
+      replication = list()
+
+    ),
+
+    class = "Hypothesis"
+
+  )
+
+}
+
+# =============================================================================
 # ModuleGraph
 # =============================================================================
 

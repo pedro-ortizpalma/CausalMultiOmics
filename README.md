@@ -131,7 +131,7 @@ clean
 #> Removed samples:               0
 #> Removed features:              0
 #> Plots:                         0
-#> Runtime:                       0.06 s
+#> Runtime:                       0.03 s
 ```
 
 ## Building evidence
@@ -162,7 +162,7 @@ results
 #> Causal paths:                  2
 #> Plots:                         0
 #> Tables:                        15
-#> Runtime:                       2.57 s
+#> Runtime:                       1.29 s
 ```
 
 Every relationship carries the identification strategy that would
@@ -189,6 +189,38 @@ each method reported on its own before anything was merged.
 ``` r
 explain(results, "P1")
 ```
+
+## From evidence to a claim
+
+A result is a body of evidence. A claim is one thing taken out of it,
+stated at the strength the evidence supports, with what would settle the
+argument attached.
+
+``` r
+h <- hypothesis(results)
+
+h
+```
+
+The last section is the one a result never has. It is derived from the
+specific weaknesses of the specific relationship — measure a confounder
+of at least this strength, measure the exposure first, replicate without
+these six people, separate this variable from the four it moves with —
+so a reader can act on it, which they cannot do with “residual
+confounding cannot be excluded”.
+
+The claim carries its own protocol, so it can be taken to a cohort it
+has never seen:
+
+``` r
+validation <- apply_preprocessing(new_cohort, clean)
+
+test_hypothesis(h, validation)
+```
+
+Replication is judged on direction and size rather than on a p-value.
+The usual way one is oversold is a direction that holds with an effect a
+fifth as large, which a significance test calls a success.
 
 ## What stops a number meaning more than it should
 

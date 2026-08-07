@@ -1,5 +1,41 @@
 # CausalMultiOmics 0.1.0
 
+## A claim, rather than a body of evidence
+
+* `hypothesis()` takes one relationship out of a result and states it as a
+  claim: what is being asserted, at what strength, what supports it, what
+  threatens it, and what would settle the argument. A graph of forty scored
+  relationships is material from which statements can be made; the making is
+  where the judgement is, and it was not represented anywhere.
+* `settles` is the part a result never has. It is derived from the specific
+  weaknesses of the specific relationship, so a clean claim gets a short list
+  and a fragile one gets a pointed one: measure a confounder of at least this
+  strength, measure the exposure first, replicate without these six people,
+  test within one level of the moderator, separate this variable from the
+  four it moves with. A reader can act on those and cannot act on "residual
+  confounding cannot be excluded".
+* The grade is set by identification alone. Precision, method agreement and
+  resampling stability describe how well an association was estimated and say
+  nothing about what it is evidence of; letting them raise the grade would
+  turn a well-measured correlation into a cause by arithmetic. A confirming
+  causal diagram does raise it, conditionally and explicitly, because that is
+  the entire purpose of auditing an adjustment against a stated structure.
+* The sentence follows the grade rather than the score, and the two readings
+  get different grammar: "Higher X goes with higher Y" describes what was
+  seen, "Raising X would raise Y" describes what would happen, and only
+  identification licenses the second.
+* `test_hypothesis()` takes a claim to a cohort it has never seen. The claim
+  carries its own protocol — outcome, covariates, model — so what runs there
+  is what was run here.
+* Replication is judged on direction and size, not on a p-value. The most
+  common way a replication is oversold is a direction that holds with an
+  effect a fifth as large, which a significance test calls a success; that
+  case is reported as "same direction, much smaller".
+* Covariates the new cohort lacks are named rather than quietly dropped,
+  since a model missing an adjustment is not the model the claim was made
+  with.
+* Every finding in the HTML report now carries what would settle it.
+
 ## The resolution between a feature and a block
 
 * `result$modules` is a `ModuleGraph`: groups of variables that move together,

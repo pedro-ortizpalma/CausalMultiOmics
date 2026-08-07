@@ -4577,6 +4577,674 @@ annotate_evidence <- function(result, annotations, weight = 0.1) {
 }
 
 # =============================================================================
+# Turning evidence into a claim
+# =============================================================================
+#
+# A graph of forty scored relationships is not a scientific statement. It is
+# material from which statements can be made, and everything interesting
+# happens in the making: which relationship, at what strength, under which
+# assumptions, and what would have to be observed for it to be wrong.
+#
+# That last question is the one a result never answers and a hypothesis must.
+# It is also answerable, because by this point the engine knows exactly which
+# weaknesses the relationship has: whether it was identified, how much
+# confounding it would take to erase it, whether it survived resampling, how
+# many people carry it, how much of it was imputed. Each of those implies a
+# specific measurement that would settle it. Naming them beats any amount of
+# generic caution, because a reader can act on "measure C before the outcome"
+# and cannot act on "residual confounding cannot be excluded".
+# =============================================================================
+
+#' What would have to be observed for this claim to be wrong
+#'
+#' Derived from the specific weaknesses of the specific relationship, so a
+#' clean edge gets a short list and a fragile one gets a long, pointed one.
+#'
+#' @param edge An \code{EvidenceEdge}.
+#' @param object The \code{CMOResult} it came from.
+#'
+#' @return A character vector of concrete next measurements.
+#' @keywords internal
+#' @noRd
+.hypothesis_settles <- function(edge, object) {
+
+  out <- character()
+
+  outcome <- .report_or(object$outcome$name, "the outcome")
+
+  # --- confounding ----------------------------------------------------------
+
+  if (edge$identification %in% c("none", "adjustment")) {
+
+    strength <- if (is.finite(edge$e_value) && edge$e_value > 1)
+      sprintf(" of at least %.1f", edge$e_value) else ""
+
+    out <- c(out, if (isTRUE(edge$identifiable)) {
+
+      # The diagram already claims there is nothing left to adjust for, so
+      # the useful next measurement is the one that tests that claim rather
+      # than one that assumes it is wrong.
+
+      sprintf(
+        paste("Look for a common cause of %s and %s that your diagram does",
+              "not have. The diagram is what makes this an effect rather",
+              "than an association, and a confounder%s outside it would",
+              "erase both."),
+        edge$source, outcome, strength)
+
+    } else if (nzchar(strength)) {
+
+      sprintf(
+        paste("Measure a confounder of %s and %s. To erase this it would have",
+              "to be associated with both at a risk ratio%s; anything weaker",
+              "leaves the relationship standing."),
+        edge$source, outcome, strength)
+
+    } else {
+
+      sprintf("Measure and adjust for the common causes of %s and %s.",
+              edge$source, outcome)
+
+    })
+
+  }
+
+  # --- the DAG's own answer -------------------------------------------------
+
+  missing_adjustment <- setdiff(edge$required_adjustment, edge$adjustment_set)
+
+  if (length(missing_adjustment) > 0) {
+
+    out <- c(out, sprintf(
+      paste("Measure %s. Your own causal diagram says adjusting for it would",
+            "identify this effect, and nothing else here can."),
+      paste(missing_adjustment, collapse = " and ")))
+
+  }
+
+  if (length(edge$adjustment_problems) > 0) {
+
+    out <- c(out, paste(
+      "Refit without the harmful adjustment named above. The unadjusted",
+      "estimate is closer to the truth than this one."))
+
+  }
+
+  # --- ordering -------------------------------------------------------------
+
+  if (!isTRUE(edge$temporal)) {
+
+    out <- c(out, sprintf(
+      paste("Measure %s before %s in the same people. Nothing in this data",
+            "establishes which came first, and the reverse direction fits it",
+            "equally well."),
+      edge$source, outcome))
+
+  }
+
+  # --- how many people carry it ---------------------------------------------
+
+  if (isTRUE(edge$share_driving_effect <= 0.05)) {
+
+    out <- c(out, sprintf(
+      paste("Replicate in a cohort collected independently. Here the estimate",
+            "is halved by removing %d people, so it may describe them rather",
+            "than the population."),
+      edge$samples_driving_effect))
+
+  }
+
+  # --- subgroups ------------------------------------------------------------
+
+  if (isTRUE(edge$heterogeneity_fdr < 0.05)) {
+
+    out <- c(out, sprintf(
+      paste("Test this within a single level of %s. The estimate above is an",
+            "average over groups that disagree, so it may describe neither."),
+      edge$heterogeneity_moderator))
+
+  }
+
+  # --- reconstructed values -------------------------------------------------
+
+  if (isTRUE(edge$data_quality < 1)) {
+
+    limiting <- .report_or(edge$quality_limited_by, edge$source)
+
+    out <- c(out, sprintf(
+      paste("Measure %s in the people whose value was filled in. Part of this",
+            "estimate rests on numbers that were reconstructed rather than",
+            "observed."),
+      limiting))
+
+  }
+
+  if (isFALSE(edge$complete_case_agrees)) {
+
+    out <- c(out, paste(
+      "Treat this as an artefact until the missing values are measured: on",
+      "the observed rows alone the relationship points the other way."))
+
+  }
+
+  # --- did it survive resampling --------------------------------------------
+
+  if (is.finite(edge$bootstrap_stability) && edge$bootstrap_stability < 0.5) {
+
+    out <- c(out, sprintf(
+      paste("Collect more people. This relationship appeared in only %.0f%%",
+            "of resamples of the cohort you have."),
+      100 * edge$bootstrap_stability))
+
+  }
+
+  # --- is the feature separable from its module -----------------------------
+
+  module <- .report_or(object$modules$membership, NULL)
+
+  if (!is.null(module) && edge$source %in% names(module) &&
+      !is.na(module[[edge$source]])) {
+
+    members <- names(module)[which(module == module[[edge$source]])]
+
+    if (length(members) > 1) {
+
+      out <- c(out, sprintf(
+        paste("Separate %s from the %d other variables it moves with. In this",
+              "data they cannot be told apart, so the effect may belong to any",
+              "of them or to whatever drives all of them."),
+        edge$source, length(members) - 1L))
+
+    }
+
+  }
+
+  out
+
+}
+
+#' What kind of statement the evidence licenses
+#'
+#' The grade is not a quality score. It is the strongest sentence that can be
+#' written without overstating, which is a different thing: a well-measured,
+#' highly stable association is still an association.
+#'
+#' @param edge An \code{EvidenceEdge}.
+#'
+#' @return A list with the grade and the reasons for it.
+#' @keywords internal
+#' @noRd
+.hypothesis_grade <- function(edge) {
+
+  reasons <- character()
+
+  # Identification sets the ceiling. Nothing about precision, agreement or
+  # stability can raise it, because those measure how well the association
+  # was estimated and the question here is what the association is evidence
+  # of.
+
+  grade <- switch(
+    .report_or(edge$identification, "none"),
+    instrument = "an identified effect",
+    temporal   = "a temporally ordered association",
+    adjustment = "an adjusted association",
+    "an association"
+  )
+
+  reasons <- c(reasons, switch(
+    .report_or(edge$identification, "none"),
+    instrument = "An instrument was available, so the effect is identified.",
+    temporal   = "The exposure was measured before the outcome.",
+    adjustment = "Measured confounders were adjusted for; unmeasured ones cannot be.",
+    "Nothing was adjusted for, so any shared cause is inside this number."
+  ))
+
+  if (isTRUE(edge$identifiable)) {
+
+    # The whole point of auditing an adjustment against a stated structure is
+    # that it turns "we controlled for age" into a checkable argument that
+    # the effect is identified. Leaving the grade at "adjusted association"
+    # would make the audit decorative. It stays conditional on the diagram,
+    # which the data cannot confirm, and the sentence says so.
+
+    grade <- "an effect identified by the causal diagram you supplied"
+
+    reasons <- c(reasons,
+                 paste("That diagram says the adjustment closes every backdoor",
+                       "path. The data cannot confirm the diagram is right."))
+
+  } else if (isFALSE(edge$identifiable)) {
+    reasons <- c(reasons,
+                 "The supplied causal diagram says this adjustment does not identify it.")
+  }
+
+  # Weaknesses that cost a grade rather than a footnote.
+
+  if (isFALSE(edge$complete_case_agrees)) {
+
+    grade <- "an artefact of the missing-value filling"
+    reasons <- c(reasons,
+                 "On the rows that were actually measured it points the other way.")
+
+  } else if (isTRUE(edge$share_driving_effect <= 0.05)) {
+
+    grade <- paste(grade, "carried by a small minority")
+    reasons <- c(reasons, sprintf(
+      "Removing %d people halves it.", .report_or(edge$samples_driving_effect, NA)))
+
+  } else if (isTRUE(edge$heterogeneity_fdr < 0.05)) {
+
+    grade <- paste(grade, "averaged over groups that disagree")
+    reasons <- c(reasons, sprintf(
+      "It differs by %s.", .report_or(edge$heterogeneity_moderator, "a subgroup")))
+
+  }
+
+  list(grade = grade, reasons = reasons)
+
+}
+
+#' The case for and against, kept apart
+#'
+#' @param edge An \code{EvidenceEdge}.
+#' @param object The \code{CMOResult}.
+#'
+#' @return A list of two character vectors.
+#' @keywords internal
+#' @noRd
+.hypothesis_case <- function(edge, object) {
+
+  for_it <- character()
+  against <- character()
+
+  n_methods <- length(edge$supporting_methods)
+
+  if (n_methods > 1) {
+    for_it <- c(for_it, sprintf(
+      "%d independent methods found it, agreeing on the direction: %s.",
+      n_methods, paste(edge$supporting_methods, collapse = ", ")))
+  } else if (n_methods == 1) {
+    against <- c(against, sprintf(
+      "Only one method found it (%s), so nothing corroborates it.",
+      edge$supporting_methods[1]))
+  }
+
+  if (is.finite(edge$fdr)) {
+    if (edge$fdr < 0.05) {
+      for_it <- c(for_it, sprintf(
+        "It survives correction for the number of relationships tested (FDR %.3g).",
+        edge$fdr))
+    } else {
+      against <- c(against, sprintf(
+        "It does not survive correction for multiplicity (FDR %.3g).", edge$fdr))
+    }
+  }
+
+  if (is.finite(edge$e_value)) {
+    if (edge$e_value >= 2) {
+      for_it <- c(for_it, sprintf(
+        "Explaining it away needs a confounder associated with both at %.1f or more, which is stronger than most measured risk factors.",
+        edge$e_value))
+    } else {
+      against <- c(against, sprintf(
+        "A confounder of strength %.1f would erase it, which is weak enough to be commonplace.",
+        edge$e_value))
+    }
+  }
+
+  if (is.finite(edge$bootstrap_stability)) {
+    if (edge$bootstrap_stability >= 0.8) {
+      for_it <- c(for_it, sprintf(
+        "It reappeared in %.0f%% of resamples of this cohort.",
+        100 * edge$bootstrap_stability))
+    } else {
+      against <- c(against, sprintf(
+        "It reappeared in only %.0f%% of resamples of this cohort.",
+        100 * edge$bootstrap_stability))
+    }
+  }
+
+  if (isTRUE(edge$cross_block)) {
+    for_it <- c(for_it, paste(
+      "It runs between two different kinds of measurement, so it is not an",
+      "artefact of one platform."))
+  }
+
+  if (isTRUE(edge$share_driving_effect > 0.15)) {
+    for_it <- c(for_it, sprintf(
+      "It is spread across the cohort: %.0f%% of people would have to be removed to halve it.",
+      100 * edge$share_driving_effect))
+  }
+
+  if (isTRUE(edge$data_quality < 1)) {
+    against <- c(against, sprintf(
+      "Part of it rests on values that were filled in rather than measured (quality %.2f).",
+      edge$data_quality))
+  }
+
+  if (length(edge$conflicting_methods) > 0) {
+    against <- c(against, sprintf(
+      "These methods reported the opposite direction: %s.",
+      paste(edge$conflicting_methods, collapse = ", ")))
+  }
+
+  if (is.finite(edge$direction_confidence) && edge$direction_confidence < 0.7) {
+    against <- c(against, sprintf(
+      "The direction is not settled: confidence %.2f, on %s.",
+      edge$direction_confidence, .report_or(edge$direction_basis, "weak grounds")))
+  }
+
+  list(supports = for_it, threatens = against)
+
+}
+
+#' State one relationship as a claim that could be wrong
+#'
+#' A \code{CMOResult} is a body of evidence. This takes one relationship out
+#' of it and states it as a hypothesis: the claim at the strength the
+#' evidence supports, the case for it, the case against it, and the specific
+#' measurements that would settle the argument.
+#'
+#' @section Why this is not just the top row of a table:
+#'
+#' The engine can rank relationships. It cannot decide which one is worth
+#' making a claim about, because that depends on what the claim is for. What
+#' it can do is take the relationship you name and say exactly what could be
+#' asserted, what could not, and what would have to be observed next.
+#'
+#' The grade is set by identification alone. Precision, method agreement and
+#' resampling stability describe how well the association was estimated; they
+#' say nothing about what it is evidence of, and letting them raise the grade
+#' would turn a well-measured association into a cause by arithmetic.
+#'
+#' @param object A \code{CMOResult}.
+#' @param feature The variable to state a claim about. Defaults to the
+#'   highest-scoring relationship with the outcome.
+#'
+#' @return A \code{Hypothesis} object.
+#'
+#' @seealso \code{\link{test_hypothesis}} to take it to another cohort.
+#'
+#' @examples
+#' \donttest{
+#' set.seed(1)
+#' ids <- paste0("S", 1:60)
+#' obj <- load_data(
+#'   list(main = data.frame(a = rnorm(60), b = rnorm(60), row.names = ids)),
+#'   metadata = data.frame(sample_id = ids, y = rnorm(60))
+#' )
+#' prep <- preprocess(obj, check_data(obj), plots = FALSE, quiet = TRUE)
+#' res <- analyze(prep, "y", methods = "association", effort = "fast",
+#'                plots = FALSE, quiet = TRUE)
+#'
+#' hypothesis(res)
+#' }
+#'
+#' @export
+hypothesis <- function(object, feature = NULL) {
+
+  if (!inherits(object, "CMOResult")) {
+    stop("'object' must be a CMOResult object.", call. = FALSE)
+  }
+
+  outcome <- object$outcome$name
+
+  to_outcome <- Filter(function(e) identical(e$target, outcome),
+                       object$evidence)
+
+  if (length(to_outcome) == 0) {
+    stop("This analysis found no relationship with the outcome to state.",
+         call. = FALSE)
+  }
+
+  edge <- if (is.null(feature)) {
+
+    to_outcome[[which.max(vapply(to_outcome, function(e)
+      .report_or(e$evidence_score, 0), numeric(1)))]]
+
+  } else {
+
+    hit <- Filter(function(e) identical(e$source, feature), to_outcome)
+
+    if (length(hit) == 0) {
+
+      stop(sprintf(
+        "'%s' has no relationship with %s in this analysis.\n  Available: %s",
+        feature, outcome,
+        paste(utils::head(vapply(to_outcome, function(e) e$source,
+                                 character(1)), 15), collapse = ", ")),
+        call. = FALSE)
+
+    }
+
+    hit[[1]]
+
+  }
+
+  h <- Hypothesis()
+
+  h$source <- edge$source
+  h$target <- edge$target
+  h$estimate <- edge$estimate
+  h$ci <- c(edge$ci_lower, edge$ci_upper)
+  h$quantity <- edge$quantity
+  h$quantity_label <- edge$quantity_label
+  h$direction <- edge$direction
+  h$identification <- edge$identification
+  h$assumptions <- edge$assumptions
+
+  graded <- .hypothesis_grade(edge)
+
+  h$grade <- graded$grade
+  h$grade_reasons <- graded$reasons
+
+  case <- .hypothesis_case(edge, object)
+
+  h$supports <- case$supports
+  h$threatens <- case$threatens
+  h$settles <- .hypothesis_settles(edge, object)
+
+  # The sentence follows the grade, not the score. A relationship can be
+  # measured beautifully and still only go with something. The two readings
+  # need different grammar, not the same sentence with a stronger adverb:
+  # "goes with" describes what was seen and "raising X raises Y" describes
+  # what would happen, which is the claim only identification licenses.
+
+  identified <- grepl("identified", h$grade, fixed = TRUE)
+
+  moves <- if (identical(edge$direction, "negative")) "lower" else "raise"
+
+  h$claim <- if (identified) {
+
+    sprintf("Raising %s would %s %s.", edge$source, moves, outcome)
+
+  } else {
+
+    sprintf("Higher %s goes with %s %s.", edge$source,
+            if (identical(edge$direction, "negative")) "lower" else "higher",
+            outcome)
+
+  }
+
+  h$protocol <- list(
+    outcome = outcome,
+    outcome_type = .report_or(object$outcome$type, NA_character_),
+    covariates = edge$adjustment_set,
+    block = edge$source_block,
+    design = .report_or(object$design$type, NA_character_),
+    model = if (identical(.report_or(object$outcome$type, ""), "binary"))
+      "logistic regression" else "linear regression"
+  )
+
+  h$provenance <- list(
+    package = "CausalMultiOmics",
+    version = as.character(utils::packageVersion("CausalMultiOmics")),
+    generated = .report_or(object$timestamp, Sys.time()),
+    samples = .report_or(object$performance$samples, NA),
+    methods = edge$supporting_methods,
+    evidence_score = edge$evidence_score,
+    level = edge$level_label,
+    seed = .report_or(object$parameters$seed, NA)
+  )
+
+  h
+
+}
+
+#' Take a stated claim to a different cohort
+#'
+#' The claim carries its own protocol: which outcome, which covariates, which
+#' model. This runs exactly that on data it has never seen and reports
+#' whether the relationship is there, at what size, and in which direction.
+#'
+#' Replication is not agreement of p-values. A claim replicates when the new
+#' estimate points the same way and is of a comparable size, and the most
+#' common failure is a direction that holds with an effect a fifth as large,
+#' which a significance test would call a success.
+#'
+#' @param hypothesis A \code{Hypothesis} from \code{\link{hypothesis}}.
+#' @param object A \code{PreprocessingResult} for the new cohort, ideally
+#'   produced by \code{\link{apply_preprocessing}} so the columns are on the
+#'   same scale as the ones the claim was made on.
+#'
+#' @return The hypothesis, with its \code{replication} slot filled in.
+#'
+#' @export
+test_hypothesis <- function(hypothesis, object) {
+
+  if (!inherits(hypothesis, "Hypothesis")) {
+    stop("'hypothesis' must be a Hypothesis object.", call. = FALSE)
+  }
+
+  # apply_preprocessing() hands back a MultiOmicsData, and preprocess() a
+  # PreprocessingResult wrapping one. Both are legitimate ways to arrive
+  # here, and refusing the first would send the user looking for a conversion
+  # that does not exist.
+
+  data <- if (inherits(object, "PreprocessingResult")) object$data else
+    if (inherits(object, "MultiOmicsData")) object else NULL
+
+  if (is.null(data)) {
+    stop(paste("'object' must be the new cohort after preprocessing:",
+               "a MultiOmicsData from apply_preprocessing(), or a",
+               "PreprocessingResult."),
+         call. = FALSE)
+  }
+
+  metadata <- data$metadata
+
+  outcome_name <- hypothesis$protocol$outcome
+
+  if (is.null(metadata) || !(outcome_name %in% colnames(metadata))) {
+
+    stop(sprintf("The new cohort has no '%s' column to test against.",
+                 outcome_name), call. = FALSE)
+
+  }
+
+  # Find the feature wherever it lives in the new object.
+
+  found <- NULL
+
+  for (block in names(data$assays)) {
+
+    if (hypothesis$source %in% colnames(data$assays[[block]])) {
+      found <- data$assays[[block]]
+      break
+    }
+
+  }
+
+  if (is.null(found)) {
+
+    stop(sprintf("'%s' was not measured in the new cohort.",
+                 hypothesis$source), call. = FALSE)
+
+  }
+
+  ids <- rownames(found)
+
+  frame <- data.frame(
+    .y = metadata[[outcome_name]][match(ids, metadata$sample_id)],
+    .x = found[, hypothesis$source]
+  )
+
+  missing_covariates <- setdiff(hypothesis$protocol$covariates,
+                                colnames(metadata))
+
+  used_covariates <- intersect(hypothesis$protocol$covariates,
+                               colnames(metadata))
+
+  if (length(used_covariates) > 0) {
+    frame <- cbind(frame, metadata[match(ids, metadata$sample_id),
+                                   used_covariates, drop = FALSE])
+  }
+
+  frame <- frame[stats::complete.cases(frame), , drop = FALSE]
+
+  if (nrow(frame) < 10) {
+    stop("Fewer than 10 people in the new cohort have all the values needed.",
+         call. = FALSE)
+  }
+
+  binary <- identical(hypothesis$protocol$outcome_type, "binary")
+
+  fit <- .safe_try(
+    if (binary) stats::glm(.y ~ ., data = frame, family = stats::binomial())
+    else stats::lm(.y ~ ., data = frame),
+    NULL)
+
+  if (is.null(fit)) {
+    stop("The model could not be fitted on the new cohort.", call. = FALSE)
+  }
+
+  coefs <- summary(fit)$coefficients
+
+  estimate <- coefs[".x", 1]
+  se <- coefs[".x", 2]
+
+  same_direction <- is.finite(hypothesis$estimate) &&
+    sign(estimate) == sign(hypothesis$estimate)
+
+  # A ratio, because "replicated" usually means the direction held and the
+  # size did not, and only one of those is visible in a p-value.
+
+  ratio <- if (is.finite(hypothesis$estimate) && hypothesis$estimate != 0)
+    estimate / hypothesis$estimate else NA_real_
+
+  verdict <- if (!same_direction) "contradicted"
+  else if (is.finite(ratio) && ratio >= 0.5) "replicated"
+  else if (coefs[".x", 4] < 0.05) "same direction, much smaller"
+  else "not detected"
+
+  hypothesis$replication <- list(
+    tested = TRUE,
+    n = nrow(frame),
+    estimate = estimate,
+    se = se,
+    ci = c(estimate - 1.96 * se, estimate + 1.96 * se),
+    p_value = coefs[".x", 4],
+    original = hypothesis$estimate,
+    ratio = ratio,
+    same_direction = same_direction,
+    verdict = verdict,
+    covariates_used = used_covariates,
+    covariates_missing = missing_covariates,
+    notes = c(
+      if (length(missing_covariates) > 0) sprintf(
+        paste("Adjusted for %d of %d covariates: %s were not available, so",
+              "this is not the same model."),
+        length(used_covariates), length(hypothesis$protocol$covariates),
+        paste(missing_covariates, collapse = ", ")) else NULL,
+      "A replication tests the claim, not the analysis that produced it."
+    )
+  )
+
+  hypothesis
+
+}
+
+# =============================================================================
 # The resolution between a feature and a block
 # =============================================================================
 #

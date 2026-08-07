@@ -1606,6 +1606,113 @@ summary.EvidenceEdge <- function(object, ...) {
 }
 
 # =============================================================================
+# Hypothesis
+# =============================================================================
+
+#' Print a stated claim, its case, and what would settle it
+#'
+#' @param x A \code{Hypothesis}.
+#' @param ... Ignored.
+#'
+#' @return The object, invisibly.
+#'
+#' @export
+
+print.Hypothesis <- function(x, ...) {
+
+  wrap <- function(text, prefix = "  ", initial = prefix) {
+    cat(paste(strwrap(text, width = 74, prefix = prefix, initial = initial),
+              collapse = "\n"), "\n", sep = "")
+  }
+
+  cat("\n")
+  cat("Hypothesis\n")
+  cat(strrep("=", 74), "\n\n", sep = "")
+
+  wrap(.report_or(x$claim, "No claim could be stated."))
+
+  cat("\n")
+  wrap(sprintf("This is %s.", .report_or(x$grade, "an association")))
+
+  cat("\n")
+  cat(sprintf("  %-22s %s\n", "Effect:",
+              sprintf("%s (%s)", fmt_num(x$estimate, 4),
+                      .report_or(x$quantity_label, "unspecified"))))
+
+  if (all(is.finite(x$ci))) {
+    cat(sprintf("  %-22s [%s, %s]\n", "95% CI:",
+                fmt_num(x$ci[1], 4), fmt_num(x$ci[2], 4)))
+  }
+
+  cat(sprintf("  %-22s %s\n", "Identification:",
+              .report_or(x$identification, "-")))
+
+  if (length(x$grade_reasons) > 0) {
+    cat("\n")
+    for (r in x$grade_reasons) wrap(r, prefix = "    ", initial = "  - ")
+  }
+
+  section <- function(title, items, bullet = "  + ") {
+
+    if (length(items) == 0) return(invisible(NULL))
+
+    cat("\n")
+    cat(title, "\n", sep = "")
+    cat(strrep("-", 74), "\n", sep = "")
+
+    for (i in items) wrap(i, prefix = "    ", initial = bullet)
+
+  }
+
+  section("What supports it", x$supports, "  + ")
+  section("What threatens it", x$threatens, "  - ")
+
+  # The part that makes this a hypothesis rather than a result: not what was
+  # seen, but what would change the author's mind.
+  section("What would settle it", x$settles, "  > ")
+
+  if (isTRUE(x$replication$tested)) {
+
+    r <- x$replication
+
+    cat("\n")
+    cat("Tested on another cohort\n")
+    cat(strrep("-", 74), "\n", sep = "")
+
+    cat(sprintf("  %-22s %s\n", "Verdict:", toupper(r$verdict)))
+    cat(sprintf("  %-22s %s\n", "There:",
+                sprintf("%s [%s, %s], n = %d, p = %s",
+                        fmt_num(r$estimate, 4), fmt_num(r$ci[1], 4),
+                        fmt_num(r$ci[2], 4), r$n,
+                        format.pval(r$p_value, digits = 2, eps = 1e-16))))
+    cat(sprintf("  %-22s %s\n", "Here:", fmt_num(r$original, 4)))
+    cat(sprintf("  %-22s %s of the original\n", "Size:",
+                if (is.finite(r$ratio)) sprintf("%.0f%%", 100 * r$ratio)
+                else "-"))
+
+    for (nt in r$notes) wrap(nt, prefix = "    ", initial = "  ! ")
+
+  }
+
+  cat("\n")
+
+  if (length(x$provenance) > 0) {
+
+    cat(sprintf("  From %s %s, %s sample(s), score %s.\n",
+                .report_or(x$provenance$package, "?"),
+                .report_or(x$provenance$version, "?"),
+                .report_or(x$provenance$samples, "?"),
+                fmt_num(.report_or(x$provenance$evidence_score, NA), 1)))
+
+  }
+
+  cat("\n")
+
+  invisible(x)
+
+}
+
+# =============================================================================
 # ModuleGraph
 # =============================================================================
 
@@ -4609,6 +4716,37 @@ pre.flow{font-size:12.5px;line-height:1.4}
 
 }
 
+#' What would have to be measured next to settle this one
+#'
+#' The most actionable thing the engine produces and the only part of a
+#' report a reader can act on directly. Everything else says what was seen;
+#' this says what to do about it.
+#'
+#' @keywords internal
+#' @noRd
+.html_result_settles <- function(object, source) {
+
+  h <- .safe_try(hypothesis(object, source), NULL)
+
+  if (is.null(h) || length(h$settles) == 0) return("")
+
+  paste0(
+    "<details class='provenance'><summary>What would settle this</summary>",
+
+    "<p class='muted'>Each of these follows from a specific weakness in this ",
+    "relationship rather than from general caution, so they are in the order ",
+    "the evidence puts them.</p>",
+
+    "<ol>",
+    paste0("<li>", vapply(h$settles, .html_escape, character(1)), "</li>",
+           collapse = ""),
+    "</ol>",
+
+    "</details>"
+  )
+
+}
+
 #' Say whether this one number describes everybody
 #'
 #' Only rendered when there is something to say. A box confirming that a
@@ -4850,6 +4988,8 @@ pre.flow{font-size:12.5px;line-height:1.4}
       .html_result_dag_verdict(object, row$source, object$outcome$name),
 
       .html_result_contributions(object, row$source, object$outcome$name),
+
+      .html_result_settles(object, row$source),
 
       "</div>"
     )

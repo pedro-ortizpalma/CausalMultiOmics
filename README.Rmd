@@ -136,6 +136,38 @@ method reported on its own before anything was merged.
 explain(results, "P1")
 ```
 
+## From evidence to a claim
+
+A result is a body of evidence. A claim is one thing taken out of it, stated
+at the strength the evidence supports, with what would settle the argument
+attached.
+
+```{r hypothesis, eval = FALSE}
+h <- hypothesis(results)
+
+h
+```
+
+The last section is the one a result never has. It is derived from the
+specific weaknesses of the specific relationship &mdash; measure a confounder
+of at least this strength, measure the exposure first, replicate without
+these six people, separate this variable from the four it moves with &mdash;
+so a reader can act on it, which they cannot do with "residual confounding
+cannot be excluded".
+
+The claim carries its own protocol, so it can be taken to a cohort it has
+never seen:
+
+```{r replicate, eval = FALSE}
+validation <- apply_preprocessing(new_cohort, clean)
+
+test_hypothesis(h, validation)
+```
+
+Replication is judged on direction and size rather than on a p-value. The
+usual way one is oversold is a direction that holds with an effect a fifth as
+large, which a significance test calls a success.
+
 ## What stops a number meaning more than it should
 
 Four checks run over the merged graph. None of them changes an estimate;
