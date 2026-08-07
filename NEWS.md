@@ -1,5 +1,38 @@
 # CausalMultiOmics 0.1.0
 
+## Does one number describe everybody?
+
+* Every estimate is an average over the people measured, and an average says
+  nothing about whether they resemble each other. A coefficient of 0.4 is
+  compatible with 0.4 in everyone and with 2.0 in a tenth of them and nothing
+  in the rest; the first is a property of the cohort, the second a property
+  of ten people nobody has identified.
+* `share_driving_effect` answers that without needing anything named: how
+  much of the cohort would have to be removed to halve the estimate. For a
+  relationship that holds broadly the answer is most of them, because
+  removing a few people barely shifts an average. Samples are ordered by
+  their influence on the coefficient, so it is the worst case rather than a
+  typical one — a reader deciding whether to believe a result wants to know
+  how fragile it could be.
+* Computed from one-step influence and then confirmed by a single refit at
+  the chosen count, since dfbetas are not additive and a running total would
+  be an estimate presented as a measurement.
+* An estimate indistinguishable from zero is not reported as fragile.
+  Halving nothing costs nothing, and without that guard every null result
+  would read as driven by a handful of people.
+* Subgroup results now travel on the relationship they belong to rather than
+  only in a table at the bottom. Nobody cross-references a table against the
+  finding they are reading, so the finding carries `heterogeneity_moderator`,
+  `heterogeneity_fdr`, `effect_by_group` and `consistent_across_groups`, and
+  says when the direction reverses between levels.
+* `effect_by_group` is structured data as well as a printable string. The
+  string was all there was, and anything wanting to put the groups in a table
+  had to parse it back apart.
+* Both are shown on the finding itself, in `explain()`, in the score
+  decomposition and in the graph edge table. A relationship halved by
+  removing three people is a different object from one that survives losing
+  half of them, and the score cannot tell them apart.
+
 ## Would this report repeat?
 
 * `result$consensus` is a `ConsensusGraph`: what the graph looks like across

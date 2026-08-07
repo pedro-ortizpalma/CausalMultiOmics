@@ -1055,6 +1055,41 @@ EvidenceEdge <- function() {
 
       complete_case_agrees = NA,
 
+      # -----------------------------------------------------------------------
+      # Whether one number describes everybody
+      # -----------------------------------------------------------------------
+      #
+      # A pooled estimate is an average, and an average is a poor summary of a
+      # relationship that is strong in a fifth of people and absent in the
+      # rest. Two different questions are recorded, because they need
+      # different evidence and fail in different ways.
+      #
+      # The first needs the user to name a candidate modifier: does the effect
+      # differ between the groups that variable defines? Interaction tests are
+      # badly underpowered, so a null here is close to worthless and only a
+      # positive means anything.
+
+      heterogeneity_moderator = NA_character_,
+
+      heterogeneity_p = NA_real_,
+
+      heterogeneity_fdr = NA_real_,
+
+      effect_by_group = data.frame(),
+
+      consistent_across_groups = NA,
+
+      # The second needs nothing named, which matters because the usual
+      # situation is not knowing what modifies the effect. How much of the
+      # cohort would have to be removed to halve this estimate? For a
+      # relationship that holds in everyone the answer is most of them,
+      # because removing a few people barely moves an average. For one
+      # produced by a handful of unusual samples the answer is a handful.
+
+      samples_driving_effect = NA_integer_,
+
+      share_driving_effect = NA_real_,
+
       # Epistemic level of the strongest method that contributed, 1 to 5.
       # Agreement between methods is weighted by this: five predictive
       # methods concurring is weaker evidence than one longitudinal model

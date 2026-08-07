@@ -2232,6 +2232,13 @@ observation <- function(source, target, quantity, estimate,
       # values rather than for being a weaker relationship.
       data_quality = round(e$data_quality, 3),
 
+      # How much of the cohort carries this. A relationship halved by
+      # removing three people is a different object from one that survives
+      # losing half of them, and the score cannot tell them apart.
+      share_driving_effect = round(e$share_driving_effect, 3),
+
+      heterogeneity_fdr = round(e$heterogeneity_fdr, 4),
+
       e_value = round(e$e_value, 3),
       direction_confidence = round(e$direction_confidence, 3),
       bootstrap_stability = round(e$bootstrap_stability, 3),
@@ -3210,6 +3217,78 @@ analyze <- function(object,
   }
 
   # ---------------------------------------------------------------------------
+  # Does one number describe everybody?
+  # ---------------------------------------------------------------------------
+  #
+  # Applied to the edges before the graph is built from them, so the tables
+  # and figures downstream carry the answer rather than contradicting it.
+
+  reported_features <- unique(vapply(
+    Filter(function(e) identical(e$target, outcome_spec$name), evidence),
+    function(e) e$source, character(1)))
+
+  if (isTRUE(diagnostics)) {
+
+    evidence <- .safe_try(
+      .edge_concentration(evidence, x, outcome_spec, covariate_frame),
+      evidence
+    )
+
+    fragile <- sum(vapply(evidence, function(e)
+      isTRUE(e$share_driving_effect <= 0.05), logical(1)))
+
+    if (fragile > 0) {
+
+      logs <- c(logs, sprintf(
+        "Effect concentration: %d relationship(s) are halved by removing 5%% or less of the cohort.",
+        fragile))
+
+      if (!isTRUE(quiet)) {
+        cat(sprintf("  Concentration: %d relationship(s) rest on a small minority.\n",
+                    fragile))
+      }
+
+    }
+
+  }
+
+  # Testing against a named modifier needs the user to have guessed what
+  # modifies the effect, so it only runs when they say.
+
+  subgroups <- if (!is.null(heterogeneity)) {
+
+    .safe_try(
+      .heterogeneity(context, heterogeneity,
+                     utils::head(reported_features, 20), quiet),
+      list(available = FALSE)
+    )
+
+  } else list(available = FALSE)
+
+  if (isTRUE(subgroups$available)) {
+
+    evidence <- .safe_try(
+      .edge_heterogeneity(evidence, subgroups, outcome_spec$name), evidence)
+
+    differing <- sum(vapply(evidence, function(e)
+      isTRUE(e$heterogeneity_fdr < 0.05), logical(1)))
+
+    if (differing > 0) {
+
+      logs <- c(logs, sprintf(
+        "Heterogeneity: %d relationship(s) differ between the groups tested.",
+        differing))
+
+      if (!isTRUE(quiet)) {
+        cat(sprintf("  Heterogeneity: %d relationship(s) are an average over groups that disagree.\n",
+                    differing))
+      }
+
+    }
+
+  }
+
+  # ---------------------------------------------------------------------------
   # Resampling: would these relationships survive a different sample?
   # ---------------------------------------------------------------------------
 
@@ -3326,11 +3405,6 @@ analyze <- function(object,
 
   model_diagnostics <- if (isTRUE(diagnostics)) {
     .safe_try(.model_diagnostics(context, top_features, quiet),
-              list(available = FALSE))
-  } else list(available = FALSE)
-
-  subgroups <- if (!is.null(heterogeneity)) {
-    .safe_try(.heterogeneity(context, heterogeneity, top_features, quiet),
               list(available = FALSE))
   } else list(available = FALSE)
 
@@ -4467,6 +4541,190 @@ annotate_evidence <- function(result, annotations, weight = 0.1) {
 }
 
 # =============================================================================
+# Whether one number describes everybody
+# =============================================================================
+#
+# Every estimate this package reports is an average over the people who were
+# measured, and an average says nothing about whether they resemble each
+# other. A coefficient of 0.4 is compatible with 0.4 in everyone and with 2.0
+# in a tenth of them and nothing in the rest, and those two findings have
+# almost nothing in common: the first is a property of the cohort, the second
+# is a property of ten people nobody has identified.
+#
+# Testing that against a named moderator is the standard approach and needs
+# the user to have guessed right about what modifies the effect. The check
+# here needs no guess. It asks how much of the cohort would have to be
+# removed to halve the estimate, which is answerable from the fit alone.
+# =============================================================================
+
+#' How few people it would take to halve a relationship
+#'
+#' For a relationship that holds across the cohort, removing a few people
+#' barely moves the estimate: that is what an average does. For one produced
+#' by a small unusual group, removing that group collapses it. The number of
+#' samples that separates those two cases is a more useful description of
+#' robustness than any p-value, and it is not a p-value in disguise: a
+#' finding can be overwhelmingly significant and rest entirely on nine
+#' people.
+#'
+#' The candidate set is ordered by influence on the coefficient, so this is
+#' the worst case rather than a typical one. That is deliberate. A reader
+#' deciding whether to believe a result wants to know how fragile it could
+#' be, not how fragile a random deletion would make it.
+#'
+#' @param y Outcome values.
+#' @param x The exposure column.
+#' @param covariates Covariate frame, or \code{NULL}.
+#' @param binary Whether the outcome is binary.
+#'
+#' @return A list with the count and the share of the cohort it represents,
+#'   or \code{NULL} when the model could not be fitted.
+#' @keywords internal
+#' @noRd
+.effect_concentration <- function(y, x, covariates = NULL, binary = FALSE) {
+
+  frame <- data.frame(.y = y, .x = x)
+
+  if (!is.null(covariates)) frame <- cbind(frame, covariates)
+
+  frame <- frame[stats::complete.cases(frame), , drop = FALSE]
+
+  n <- nrow(frame)
+
+  if (n < 20 || stats::sd(frame$.x) == 0) return(NULL)
+
+  fit_it <- function(d) {
+    .safe_try(
+      if (binary) stats::glm(.y ~ ., data = d, family = stats::binomial())
+      else stats::lm(.y ~ ., data = d),
+      NULL
+    )
+  }
+
+  fit <- fit_it(frame)
+
+  if (is.null(fit)) return(NULL)
+
+  beta <- .safe_try(stats::coef(fit)[[".x"]], NA_real_)
+
+  if (!is.finite(beta) || beta == 0) return(NULL)
+
+  # An estimate indistinguishable from zero is trivially fragile: halving
+  # nothing costs nothing, and the metric would report every null result as
+  # driven by a handful of people. Concentration is a statement about a
+  # relationship that exists, so there has to be one first.
+
+  se <- .safe_try(summary(fit)$coefficients[".x", 2], NA_real_)
+
+  if (!is.finite(se) || se <= 0 || abs(beta) < 2 * se) return(NULL)
+
+  # One-step influence: how much each observation pulls the coefficient. Exact
+  # for lm, a good approximation for glm, and it costs one call rather than n
+  # refits.
+
+  influence <- .safe_try(stats::dfbeta(fit)[, ".x"], NULL)
+
+  if (is.null(influence) || length(influence) != n) return(NULL)
+
+  # Samples pulling the estimate away from zero, worst first. Removing one of
+  # these lowers the coefficient by roughly its own dfbeta.
+
+  pulling <- influence * sign(beta)
+
+  ordered <- order(pulling, decreasing = TRUE)
+
+  cumulative <- cumsum(pulling[ordered])
+
+  target <- abs(beta) / 2
+
+  # Unnamed: `which()` carries the sample name across, and a count that
+  # prints as `S41 44` is a puzzle rather than an answer.
+  k <- unname(which(cumulative >= target)[1])
+
+  if (is.na(k)) {
+
+    # No prefix of the cohort halves it, which is the strongest possible
+    # answer: the relationship is not carried by any identifiable minority.
+
+    return(list(k = n, share = 1, confirmed = NA_real_))
+
+  }
+
+  # dfbetas are not additive, so the running total is an estimate. One refit
+  # at the chosen k turns it into a measurement.
+
+  refit <- fit_it(frame[-ordered[seq_len(k)], , drop = FALSE])
+
+  confirmed <- if (is.null(refit)) NA_real_ else
+    .safe_try(stats::coef(refit)[[".x"]], NA_real_)
+
+  list(k = as.integer(k), share = k / n, confirmed = confirmed)
+
+}
+
+#' Attach the concentration check to the relationships that carry the report
+#'
+#' Restricted to relationships with the outcome, because only those have one
+#' model that can be refitted without re-deriving the whole graph.
+#'
+#' @param edges Integrated edges.
+#' @param x The analysis matrix.
+#' @param outcome The resolved outcome.
+#' @param covariates Covariate frame, or \code{NULL}.
+#' @param top_n How many of the highest-scoring relationships to check.
+#'
+#' @return The edges, with the concentration fields set where applicable.
+#' @keywords internal
+#' @noRd
+.edge_concentration <- function(edges, x, outcome, covariates, top_n = 20L) {
+
+  if (length(edges) == 0) return(edges)
+
+  candidates <- which(vapply(edges, function(e) {
+    identical(e$target, outcome$name) && !is.null(e$source) &&
+      e$source %in% colnames(x)
+  }, logical(1)))
+
+  if (length(candidates) == 0) return(edges)
+
+  scores <- vapply(edges[candidates], function(e)
+    .report_or(e$evidence_score, 0), numeric(1))
+
+  candidates <- candidates[order(-scores)][
+    seq_len(min(top_n, length(candidates)))]
+
+  binary <- identical(outcome$type, "binary")
+
+  for (i in candidates) {
+
+    conc <- .safe_try(
+      .effect_concentration(outcome$values, x[, edges[[i]]$source],
+                            covariates, binary),
+      NULL
+    )
+
+    if (is.null(conc)) next
+
+    edges[[i]]$samples_driving_effect <- conc$k
+    edges[[i]]$share_driving_effect <- conc$share
+
+    if (conc$share <= 0.05) {
+
+      edges[[i]]$warnings <- c(edges[[i]]$warnings, sprintf(
+        paste("Removing the %d most influential sample(s), %.0f%% of the",
+              "cohort, halves this estimate. It describes those people more",
+              "than it describes the group."),
+        conc$k, 100 * conc$share))
+
+    }
+
+  }
+
+  edges
+
+}
+
+# =============================================================================
 # Checking an adjustment against a stated causal structure
 # =============================================================================
 #
@@ -4972,6 +5230,11 @@ annotate_evidence <- function(result, annotations, weight = 0.1) {
               else if (edge$data_quality >= 1) "nothing here was imputed"
               else sprintf("scales the score; limited by %s",
                            .report_or(edge$quality_limited_by, "an ingredient"))),
+
+    component("Spread across the cohort", edge$share_driving_effect, NA_real_,
+              if (!is.finite(edge$share_driving_effect)) "not checked"
+              else sprintf("halved by removing %d sample(s)",
+                           .report_or(edge$samples_driving_effect, NA))),
 
     component("Evidence level", edge$level / 5, NA_real_,
               sprintf("highest level reached: %s", .level_label(edge$level))),
@@ -5867,6 +6130,17 @@ annotate_evidence <- function(result, annotations, weight = 0.1) {
         slopes = paste(sprintf("%.3f", slopes), collapse = " / "),
         same_sign = all(is.na(slopes)) ||
           length(unique(sign(slopes[is.finite(slopes)]))) <= 1,
+
+        # Kept as structured data as well as the printable string. The string
+        # is for a console; anything that wants to put the groups in a table
+        # had to parse it back out, which is not a thing to ask of a caller.
+        detail = I(list(data.frame(
+          group = levels(frame$.m),
+          n = as.integer(table(frame$.m)),
+          slope = unname(slopes),
+          stringsAsFactors = FALSE
+        ))),
+
         stringsAsFactors = FALSE
       )
 
@@ -5899,6 +6173,75 @@ annotate_evidence <- function(result, annotations, weight = 0.1) {
             "study designed for it, not as a conclusion about that subgroup.")
     )
   )
+
+}
+
+#' Put the subgroup result on the relationship it belongs to
+#'
+#' The table is a fine thing to read on its own and a poor way to be told
+#' that the finding in front of you is an average over groups that disagree.
+#' Nobody cross-references a table at the bottom of a report against the card
+#' they are reading, so the finding has to carry it.
+#'
+#' Where a feature was tested against several moderators, the strongest
+#' interaction wins the slot. Reporting the weakest would bury the point.
+#'
+#' @param edges Integrated edges.
+#' @param heterogeneity The list returned by \code{.heterogeneity()}.
+#' @param outcome_name Name of the outcome.
+#'
+#' @return The edges, with the heterogeneity fields set where applicable.
+#' @keywords internal
+#' @noRd
+.edge_heterogeneity <- function(edges, heterogeneity, outcome_name) {
+
+  if (!isTRUE(heterogeneity$available) ||
+      !is.data.frame(heterogeneity$table) ||
+      nrow(heterogeneity$table) == 0) {
+    return(edges)
+  }
+
+  tab <- heterogeneity$table
+
+  lapply(edges, function(e) {
+
+    if (!identical(e$target, outcome_name)) return(e)
+
+    hits <- tab[tab$feature == e$source, , drop = FALSE]
+
+    if (nrow(hits) == 0) return(e)
+
+    hits <- hits[order(hits$interaction_fdr), , drop = FALSE]
+
+    best <- hits[1, ]
+
+    e$heterogeneity_moderator <- best$moderator
+    e$heterogeneity_p <- best$interaction_p
+    e$heterogeneity_fdr <- best$interaction_fdr
+    e$consistent_across_groups <- isTRUE(best$same_sign)
+
+    if (!is.null(best$detail)) e$effect_by_group <- best$detail[[1]]
+
+    if (isTRUE(best$interaction_fdr < 0.05)) {
+
+      e$warnings <- c(e$warnings, sprintf(
+        paste("This relationship differs by %s (FDR %.3g), so the single",
+              "estimate above is an average over groups that do not agree."),
+        best$moderator, best$interaction_fdr))
+
+      if (!isTRUE(best$same_sign)) {
+
+        e$warnings <- c(e$warnings, sprintf(
+          "The direction itself reverses between levels of %s.",
+          best$moderator))
+
+      }
+
+    }
+
+    e
+
+  })
 
 }
 
@@ -6304,6 +6647,32 @@ print.CMOExplanation <- function(x, ...) {
     if (is.finite(e$bootstrap_stability)) {
       cat(sprintf("  %-24s %.0f%% of resamples\n", "Recovered in",
                   100 * e$bootstrap_stability))
+    }
+
+    if (is.finite(e$share_driving_effect)) {
+
+      cat(sprintf("  %-24s %d sample(s), %.0f%% of the cohort\n",
+                  "Halved by removing", e$samples_driving_effect,
+                  100 * e$share_driving_effect))
+
+    }
+
+    if (is.finite(e$heterogeneity_fdr)) {
+
+      cat(sprintf("  %-24s %s (FDR %.3g)\n", "Differs by",
+                  e$heterogeneity_moderator, e$heterogeneity_fdr))
+
+      if (is.data.frame(e$effect_by_group) && nrow(e$effect_by_group) > 0) {
+
+        for (g in seq_len(nrow(e$effect_by_group))) {
+          cat(sprintf("    %-16s n = %-6d slope %s\n",
+                      e$effect_by_group$group[g],
+                      e$effect_by_group$n[g],
+                      format(round(e$effect_by_group$slope[g], 4))))
+        }
+
+      }
+
     }
 
     if (is.finite(e$data_quality) && e$data_quality < 1) {

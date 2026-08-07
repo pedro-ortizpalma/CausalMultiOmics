@@ -1517,6 +1517,44 @@ summary.EvidenceEdge <- function(object, ...) {
 
   }
 
+  if (is.finite(object$share_driving_effect) ||
+      is.finite(object$heterogeneity_fdr)) {
+
+    cat("\n")
+    cat("Does one number describe everybody\n")
+    cat("---------------------------------\n")
+
+    if (is.finite(object$share_driving_effect)) {
+
+      cat(sprintf(
+        "  Halved by removing %d sample(s), %.0f%% of the cohort.%s\n",
+        object$samples_driving_effect, 100 * object$share_driving_effect,
+        if (object$share_driving_effect <= 0.05)
+          " That is a minority, not a group." else ""))
+
+    }
+
+    if (is.finite(object$heterogeneity_fdr)) {
+
+      cat(sprintf("  Tested against %s: interaction FDR %.3g%s\n",
+                  object$heterogeneity_moderator, object$heterogeneity_fdr,
+                  if (isTRUE(object$heterogeneity_fdr < 0.05))
+                    " - the groups do not agree" else " - no difference detected"))
+
+      if (is.data.frame(object$effect_by_group) &&
+          nrow(object$effect_by_group) > 0) {
+        print(object$effect_by_group, row.names = FALSE, digits = 3)
+      }
+
+      if (!isTRUE(object$heterogeneity_fdr < 0.05)) {
+        cat("  Interaction tests are badly underpowered, so this is weak\n")
+        cat("  reassurance rather than evidence of a uniform effect.\n")
+      }
+
+    }
+
+  }
+
   if (length(object$quality_flags) > 0) {
 
     cat("\n")
@@ -4214,11 +4252,64 @@ pre.flow{font-size:12.5px;line-height:1.4}
     "<p class='lead'>", .html_escape(.result_text("identification_intro")), "</p>",
     id_blocks,
 
+    .html_result_spread_howto(object),
+
     .html_result_quality_howto(object),
 
     .html_result_dag_howto(object),
 
     "</section>"
+  )
+
+}
+
+#' Explain, once, what an average does and does not say
+#'
+#' @keywords internal
+#' @noRd
+.html_result_spread_howto <- function(object) {
+
+  checked <- Filter(function(e) is.finite(e$share_driving_effect),
+                    object$evidence)
+
+  if (length(checked) == 0) return("")
+
+  concentrated <- Filter(function(e) isTRUE(e$share_driving_effect <= 0.05),
+                         checked)
+
+  tested <- Filter(function(e) is.finite(e$heterogeneity_fdr), object$evidence)
+  differing <- Filter(function(e) isTRUE(e$heterogeneity_fdr < 0.05), tested)
+
+  paste0(
+    "<div class='callout'><h4>Does one number describe everybody?</h4>",
+
+    "<p>Every figure in this report is an average over the people who were ",
+    "measured, and an average says nothing about whether they resemble each ",
+    "other. The same number can mean the relationship holds in everyone, or ",
+    "that it is strong in a tenth of them and absent in the rest. Those are ",
+    "different findings: the first is about the group, the second is about ",
+    "ten people nobody has identified.</p>",
+
+    "<p>So each of the <b>", length(checked), "</b> strongest relationships ",
+    "was asked how much of the group would have to be removed to halve it. ",
+    "For a relationship that holds broadly the answer is most of them, ",
+    "because removing a few people barely shifts an average. <b>",
+    length(concentrated), "</b> here were halved by removing 5% or less.</p>",
+
+    if (length(tested) > 0)
+      paste0("<p>Where you named something that might change the ",
+             "relationship, it was also tested directly: <b>",
+             length(differing), "</b> of <b>", length(tested),
+             "</b> differ between the groups it defines. Detecting such a ",
+             "difference needs far more data than detecting the relationship ",
+             "itself, so a result of none is weak reassurance rather than ",
+             "evidence that the effect is uniform.</p>") else
+      paste0("<p>Nothing was named as a possible modifier, so no subgroup ",
+             "was tested directly. Passing <code>heterogeneity = </code> a ",
+             "metadata column asks whether each relationship differs across ",
+             "it.</p>"),
+
+    "</div>"
   )
 
 }
@@ -4428,6 +4519,75 @@ pre.flow{font-size:12.5px;line-height:1.4}
 
 }
 
+#' Say whether this one number describes everybody
+#'
+#' Only rendered when there is something to say. A box confirming that a
+#' relationship is spread across the cohort, on every finding, teaches the
+#' reader to skip the box that one day is not.
+#'
+#' @keywords internal
+#' @noRd
+.html_result_spread <- function(object, source, target) {
+
+  edge <- Filter(function(e) identical(e$source, source) &&
+                   identical(e$target, target), object$evidence)
+
+  if (length(edge) == 0) return("")
+
+  e <- edge[[1]]
+
+  concentrated <- isTRUE(e$share_driving_effect <= 0.05)
+  differs <- isTRUE(e$heterogeneity_fdr < 0.05)
+
+  if (!concentrated && !differs) return("")
+
+  groups <- if (differs && is.data.frame(e$effect_by_group) &&
+                nrow(e$effect_by_group) > 0) {
+
+    tab <- e$effect_by_group
+    names(tab) <- c("Group", "People in it", "Relationship within it")
+    .html_table(tab)
+
+  } else ""
+
+  paste0(
+    "<div class='callout danger'>",
+
+    "<h4>", if (differs)
+      "This number is an average over groups that disagree"
+    else "This number describes a few people, not the group", "</h4>",
+
+    if (concentrated)
+      paste0("<p>Removing the <b>", e$samples_driving_effect,
+             "</b> most influential people &mdash; <b>",
+             sprintf("%.0f%%", 100 * e$share_driving_effect),
+             "</b> of everyone measured &mdash; halves this relationship. A ",
+             "relationship that holds across a group does not behave like ",
+             "that: removing a handful of people barely moves an average. ",
+             "This one is carried by those few.</p>") else "",
+
+    if (differs)
+      paste0("<p>The relationship differs between levels of <b>",
+             .html_escape(.report_or(e$heterogeneity_moderator, "a subgroup")),
+             "</b>",
+             if (isFALSE(e$consistent_across_groups))
+               ", and the direction itself reverses between them" else "",
+             ". The single figure above is their average, which may describe ",
+             "nobody in particular.</p>") else "",
+
+    groups,
+
+    if (differs)
+      paste0("<p class='muted'>Detecting a difference between groups needs ",
+             "far more data than detecting the relationship itself, so this ",
+             "is a hypothesis for a study designed to test it, not a ",
+             "conclusion about those groups.</p>") else "",
+
+    "</div>"
+  )
+
+}
+
 #' Say which part of a relationship was measured and which was filled in
 #'
 #' Rendered only when something behind the relationship was imputed. On a
@@ -4592,6 +4752,8 @@ pre.flow{font-size:12.5px;line-height:1.4}
       if (nzchar(row$conflicts))
         paste0("<p class='muted'>Methods reporting the opposite direction: ",
                .html_escape(row$conflicts), "</p>") else "",
+
+      .html_result_spread(object, row$source, object$outcome$name),
 
       .html_result_quality(object, row$source, object$outcome$name),
 
