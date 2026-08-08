@@ -370,12 +370,14 @@ test_that("too little overlap is refused rather than silently analysed", {
 
   validation <- check_data(obj)
 
-  # Caught at the first opportunity, so the user does not preprocess two
-  # blocks for nothing before being told they cannot be analysed together.
-  expect_true(any(grepl("present in every block", validation$errors)))
+  # Flagged at the first opportunity, so the user is not surprised by it
+  # twenty minutes later. A warning rather than an error: blocks that share
+  # nobody can still be preprocessed, and analysing a subset of them
+  # afterwards is an ordinary thing to want.
+  expect_true(any(grepl("present in every block", validation$warnings)))
+  expect_false(any(grepl("present in every block", validation$errors)))
 
-  prep <- preprocess(obj, validation, plots = FALSE, quiet = TRUE,
-                     force = TRUE)
+  prep <- preprocess(obj, validation, plots = FALSE, quiet = TRUE)
 
   expect_error(analyze(prep, "y", quiet = TRUE), "shared by all")
 

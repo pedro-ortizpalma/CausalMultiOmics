@@ -35,6 +35,41 @@ test_that("every pair can be complete while the whole set is empty", {
 
 })
 
+test_that("a person counts only where something was measured on them", {
+
+  # A module administered to ninety people, assembled against the full sample
+  # list, carries a row for everyone with the rest left empty. Counting row
+  # names calls it complete, reports the whole cohort as shared, and the
+  # collapse then surfaces only after preprocessing drops those rows - which
+  # is far too late for a check whose job is to run first.
+
+  set.seed(12)
+  ids <- cmo_ids()
+
+  full <- cmo_block(ids)
+
+  padded <- cmo_block(ids)
+  padded[51:200, ] <- NA          # measured on fifty of the two hundred
+
+  cum <- .cumulative_overlap(list(full = full, padded = padded))
+
+  expect_equal(cum$samples[cum$block == "padded"], 50)
+  expect_equal(cum$shared_after[nrow(cum)], 50)
+
+  obj <- load_data(list(full = full, padded = padded),
+                   metadata = data.frame(sample_id = ids, y = rnorm(200)))
+
+  v <- check_data(obj)
+
+  expect_equal(v$summary$shared_by_all, 50)
+
+  # The pairwise matrix has to agree, or the two numbers beside each other in
+  # the report would contradict.
+  expect_equal(v$summary$overlap["full", "padded"], 50)
+  expect_equal(v$summary$overlap["padded", "padded"], 50)
+
+})
+
 test_that("the ladder is ordered largest block first", {
 
   set.seed(4)
@@ -108,7 +143,7 @@ test_that("blame is only assigned when one block deserves it", {
 
   v <- check_data(obj)
 
-  expect_true(any(grepl("'odd'", v$errors, fixed = TRUE)))
+  expect_true(any(grepl("'odd'", v$warnings, fixed = TRUE)))
 
 })
 
@@ -130,8 +165,8 @@ test_that("no culprit is invented when the loss is spread evenly", {
 
   v <- check_data(obj)
 
-  expect_true(any(grepl("spread across", v$errors)))
-  expect_false(any(grepl("Most of the loss", v$errors)))
+  expect_true(any(grepl("spread across", v$warnings)))
+  expect_false(any(grepl("Most of the loss", v$warnings)))
 
 })
 

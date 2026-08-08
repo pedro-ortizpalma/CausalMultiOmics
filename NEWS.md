@@ -400,8 +400,18 @@
   while the twenty together share none of it, because each block can be
   missing a different part. A user reading the matrix has no way to see that
   coming, and it is what stops the analysis.
-* A warning fires when the two figures disagree materially, and an error
-  when nothing survives the intersection. Blame is only assigned to a
+* A person counts as present in a block only where the block measured
+  something on them. A module administered to ninety people but assembled
+  against the full sample list carries a row for everyone with the rest left
+  empty, and counting row names called it complete — so the overlap figures
+  reported the whole cohort as shared and the collapse surfaced only after
+  preprocessing dropped those rows, which is far too late for a check whose
+  job is to run first.
+* Both figures warn rather than error. Blocks that share nobody can still be
+  preprocessed, and analysing a subset of them afterwards is an ordinary
+  thing to want; refusing at `check_data()` would block that on the strength
+  of a decision the user has not made yet. `analyze()` still refuses outright
+  when the joint analysis is actually attempted. Blame is only assigned to a
   specific block when one block genuinely stands out; naming the top three
   when every block costs the same invents a culprit.
 * The `analyze()` error now names which block to drop and what dropping it

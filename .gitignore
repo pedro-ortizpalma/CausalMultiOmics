@@ -13,3 +13,6 @@ tests/manual/output/
 # where to get it. Everything except the pointer stays out.
 tests/manual/test_data/*
 !tests/manual/test_data/SOURCE.md
+
+# Base graphics writes this whenever the suite draws without an open device.
+Rplots.pdf

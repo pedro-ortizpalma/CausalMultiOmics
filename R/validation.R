@@ -3272,7 +3272,22 @@
 
   if (length(assays) == 0) return(data.frame())
 
-  id_sets <- lapply(assays, rownames)
+  # A person is in a block if the block measured something on them, not if
+  # their identifier appears in it. A block assembled against the full
+  # sample list carries a row for everyone and fills the gaps with NA, so
+  # counting row names reports the whole cohort as present in a module that
+  # was administered to ninety people. The collapse then surfaces only after
+  # preprocessing drops those rows, which is far too late to be useful.
+
+  id_sets <- lapply(assays, function(x) {
+
+    rows <- rownames(x)
+
+    if (is.null(rows) || nrow(x) == 0) return(character())
+
+    rows[rowSums(!is.na(as.matrix(x))) > 0]
+
+  })
 
   order_by_size <- order(vapply(id_sets, length, integer(1)), decreasing = TRUE)
 
@@ -3464,14 +3479,26 @@
     dimnames = list(blocks, blocks)
   )
 
-  for (i in seq_along(blocks)) {
+  # Measured on, not merely listed in. Row names alone report a block that
+  # was administered to ninety people as covering the whole cohort whenever
+  # it was assembled against the full sample list and padded with NA.
 
-    ids_i <- rownames(object$assays[[blocks[i]]])
+  measured <- lapply(object$assays, function(x) {
+
+    rows <- rownames(x)
+
+    if (is.null(rows) || nrow(x) == 0) return(character())
+
+    rows[rowSums(!is.na(as.matrix(x))) > 0]
+
+  })
+
+  for (i in seq_along(blocks)) {
 
     for (j in seq_along(blocks)) {
 
-      ids_j <- rownames(object$assays[[blocks[j]]])
-      overlap[i, j] <- length(intersect(ids_i, ids_j))
+      overlap[i, j] <- length(intersect(measured[[blocks[i]]],
+                                        measured[[blocks[j]]]))
 
     }
 
@@ -3652,9 +3679,18 @@ check_data <- function(object) {
                       "by one; see summary$cumulative_overlap."), nrow(costly))
       }
 
-      errors <- c(errors, sprintf(
+      # A warning rather than an error, because this does not stop
+      # preprocessing and preprocessing is what check_data() plans. Blocks
+      # that share nobody can still be cleaned, and analysing a subset of
+      # them afterwards is a perfectly ordinary thing to do. Refusing here
+      # would block that on the strength of a decision the user has not made
+      # yet. analyze() still refuses outright when the joint analysis is
+      # actually attempted.
+
+      warnings <- c(warnings, sprintf(
         paste0("Only %d sample(s) are present in every block, which is too few",
-               " to analyse them together.%s"),
+               " to analyse them all together.%s Preprocessing is unaffected;",
+               " name a subset of blocks in analyze()."),
         shared_by_all, blame))
 
     } else if (shared_by_all < smallest_pair &&

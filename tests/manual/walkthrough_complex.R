@@ -7,6 +7,28 @@
 # everything: every object, every method, every step of the pipeline, and what
 # happens when you misuse it on purpose.
 #
+# It is also meant to be read. Someone who has never done this kind of
+# analysis should be able to follow the transcript from the top and come out
+# understanding not just which function to call but what each step is for,
+# what it can and cannot establish, and where the usual mistakes are. The
+# explanations are printed alongside the output rather than left in comments,
+# because the transcript is what a reader actually sees.
+#
+# Two kinds of data appear, on purpose.
+#
+# Real data - the NHANES 1999-2006 exposome release - runs the main pipeline.
+# It has the properties that make a multi-block problem real: modules given to
+# different subsamples, sentinel codes, wildly different variable types, and
+# no known answer.
+#
+# That last property is why it is not enough. Real data can show the machinery
+# running; it cannot show that the machinery is right, because there is
+# nothing to check against. So wherever an output only means something
+# relative to a known truth - a mediator being caught, a finding that exists
+# only because of imputation, an effect present in one sex only, a latent
+# process spanning two blocks - a small study is built with that truth planted
+# in it, and the section says so.
+#
 #   Rscript tests/manual/walkthrough.R
 #
 # or, inside R from the package root:
@@ -138,6 +160,39 @@ step <- function(...) {
 }
 
 note <- function(...) cat("\n  ", ..., "\n", sep = "")
+
+#' A paragraph of explanation, wrapped.
+#'
+#' The transcript is meant to be readable by someone who has never seen the
+#' package, and in places by someone who has never done this kind of analysis
+#' at all. Those readers need prose, not a comment in the source they will
+#' never open, so the explanations are printed alongside the output they
+#' explain.
+teach <- function(...) {
+
+  text <- paste0(...)
+
+  cat("\n")
+
+  for (para in strsplit(text, "\n\n", fixed = TRUE)[[1]]) {
+
+    if (!nzchar(trimws(para))) next
+
+    cat(paste(strwrap(gsub("[[:space:]]+", " ", trimws(para)),
+                      width = 76, prefix = "  "), collapse = "\n"),
+        "\n\n", sep = "")
+
+  }
+
+}
+
+#' A heading for a block of teaching, so the eye can find it in a long log.
+lesson <- function(title) {
+  cat("\n")
+  cat("  ", strrep("~", 74), "\n", sep = "")
+  cat("  ", title, "\n", sep = "")
+  cat("  ", strrep("~", 74), "\n", sep = "")
+}
 
 #' Echo a call the way a user would type it, run it, print what comes back.
 show <- function(expr, print_it = TRUE) {
@@ -722,6 +777,61 @@ NHANES_NEGATIVE_CONTROLS <- "BMXHT"
 # The study
 # -----------------------------------------------------------------------------
 
+#' The largest set of blocks that still leaves a population to analyse
+#'
+#' Blocks are added to the core, most complete first, for as long as the
+#' people present in every one of them stay above a floor. The order matters:
+#' adding a laboratory subsample early would collapse the intersection and
+#' then exclude every large block that came after it.
+#'
+#' This is the same arithmetic \code{check_data()} reports as
+#' \code{cumulative_overlap}, done in advance so the walkthrough has a
+#' workable set rather than discovering the problem twenty blocks in.
+.viable_blocks <- function(assays, prefer = character(), floor = 400) {
+
+  ids_of <- function(nm) {
+    x <- assays[[nm]]
+    rows <- rownames(x)
+    # A person measured on nothing in this block is not in it, whatever the
+    # row names say. load_data() gives every block every row and fills the
+    # gaps with NA, so counting rows would call an empty block complete.
+    if (is.null(rows) || nrow(x) == 0) return(character())
+    rows[rowSums(!is.na(as.matrix(x))) > 0]
+  }
+
+  sizes <- vapply(names(assays), function(nm) length(ids_of(nm)), integer(1))
+
+  # Preferred blocks are tried first, then everything else largest first.
+  # Nothing is taken on trust: a preferred block that would break the
+  # intersection is dropped like any other, because returning a set the
+  # caller cannot analyse is worse than returning a smaller one.
+
+  order_tried <- c(intersect(prefer, names(assays)),
+                   setdiff(names(sizes)[order(sizes, decreasing = TRUE)],
+                           prefer))
+
+  keep <- character()
+  shared <- NULL
+
+  for (nm in order_tried) {
+
+    here <- ids_of(nm)
+
+    if (length(here) < floor) next
+
+    candidate <- if (is.null(shared)) here else intersect(shared, here)
+
+    if (length(candidate) >= floor) {
+      keep <- c(keep, nm)
+      shared <- candidate
+    }
+
+  }
+
+  keep
+
+}
+
 #' Blocks drawn from the NHANES exposome release
 #'
 #' Twenty domains, filtered down to what is actually analysable. Three things
@@ -1033,6 +1143,14 @@ make_nhanes_study <- function(path = .nhanes_path,
     labels = labels,
     ids = ids,
 
+    # Which of the twenty can actually be analysed together. NHANES
+    # administered its modules to different subsamples, so the intersection
+    # of all twenty is empty: VOCs were measured on nine of these people and
+    # allergens on none of them. Asking for all twenty is a real mistake a
+    # user makes, and one section is devoted to watching the package explain
+    # it, but the rest of the walkthrough needs a set that works.
+    analysis_blocks = .viable_blocks(assays, core_blocks, floor = 400),
+
     # Kept for the sections that report on data preparation.
     preparation = list(
       blocks = vapply(assays, ncol, integer(1)),
@@ -1113,7 +1231,13 @@ make_simulated_study <- function(n = 90, seed = 42,
     negative_controls = negative_controls,
     modifiable = modifiable,
     labels = character(0),
-    ids = ids
+    ids = ids,
+
+    # All four blocks were simulated on the same people, so there is nothing
+    # to choose between. The field exists so the sections downstream do not
+    # have to know which study they were handed.
+    analysis_blocks = c("proteins", "metabolites", "transcripts",
+                        "microbiome")
   )
 
 }
@@ -1153,6 +1277,201 @@ STUDY <- if (file.exists(.nhanes_path)) {
 SIMULATED <- make_simulated_study(outcome = STUDY$outcome)
 
 make_study <- function(n = 90, seed = 42) make_simulated_study(n, seed)
+
+# -----------------------------------------------------------------------------
+# Small studies built to show one thing each
+# -----------------------------------------------------------------------------
+#
+# Real data cannot demonstrate a mechanism it does not contain. NHANES has no
+# variable that is known to be a mediator, no relationship known to exist only
+# in one sex, and no missing values known to have been filled in misleadingly.
+# It can show the machinery running; it cannot show that the machinery is
+# right, because there is no answer to check against.
+#
+# So where an output only means something against a known truth, the truth is
+# planted. Each of these builds the smallest study that makes one behaviour
+# visible, and the sections that use them say so.
+# -----------------------------------------------------------------------------
+
+#' Age confounds, inflammation mediates, a biomarker is downstream of the
+#' disease. Three relationships with three different correct verdicts.
+.cmo_dag_demo <- function(n = 250, seed = 3) {
+
+  set.seed(seed)
+
+  ids <- paste0("D", seq_len(n))
+
+  age <- rnorm(n, 55, 10)
+  protein <- 0.05 * age + rnorm(n)
+  inflammation <- 0.8 * protein + rnorm(n, sd = 0.5)
+  disease <- rbinom(n, 1, stats::plogis(0.4 * inflammation + 0.03 * age +
+                                          rnorm(n)))
+
+  obj <- load_data(
+    list(blood = data.frame(protein = protein, inflammation = inflammation,
+                            biomarker = 1.5 * disease + rnorm(n),
+                            row.names = ids)),
+    # inflammation is in the metadata as well so it can be named as a
+    # covariate: adjusting for a mediator is only reachable if the mediator
+    # can be offered as one.
+    metadata = data.frame(sample_id = ids, disease = disease, age = age,
+                          inflammation = inflammation,
+                          stringsAsFactors = FALSE)
+  )
+
+  list(
+    prep = preprocess(obj, check_data(obj), plots = FALSE, quiet = TRUE),
+    structure = data.frame(
+      from = c("age", "age", "protein", "inflammation", "disease"),
+      to   = c("protein", "disease", "inflammation", "disease", "biomarker"),
+      stringsAsFactors = FALSE
+    )
+  )
+
+}
+
+#' An exposure that is noise among the people it was measured on, whose
+#' filled-in values track the outcome. The pooled estimate points one way and
+#' the truth points the other.
+.cmo_artefact_demo <- function(n = 300, seed = 7) {
+
+  set.seed(seed)
+
+  y <- rnorm(n)
+  x <- rnorm(n)
+
+  observed <- rep(c(TRUE, FALSE), each = n / 2)
+
+  x[observed] <- -0.4 * y[observed] + rnorm(n / 2, sd = 0.5)
+  x[!observed] <- 2.5 * y[!observed] + rnorm(n / 2, sd = 0.5)
+
+  xm <- matrix(x, ncol = 1, dimnames = list(paste0("A", seq_len(n)), "exposure"))
+  mask <- matrix(observed, ncol = 1, dimnames = dimnames(xm))
+
+  edge <- .new_edge("exposure", "y", stats::coef(stats::lm(y ~ x))[[2]],
+                    "association", "linear regression", quantity = "beta")
+  edge$evidence_score <- 60
+
+  list(
+    edge = .complete_case_sensitivity(
+      list(edge), xm,
+      outcome = list(name = "y", values = y, type = "continuous"),
+      covariates = NULL, mask = mask)[[1]]
+  )
+
+}
+
+#' Three relationships of known shape: one uniform, one confined to men, one
+#' manufactured by eight extreme individuals.
+.cmo_shapes_demo <- function(n = 300, seed = 31) {
+
+  set.seed(seed)
+
+  ids <- paste0("H", seq_len(n))
+  sex <- rep(c("F", "M"), length.out = n)
+
+  uniform <- rnorm(n)
+  subgroup <- rnorm(n)
+  few <- rnorm(n)
+
+  y <- 0.6 * uniform + 0.9 * subgroup * (sex == "M") + rnorm(n)
+
+  few[1:8] <- 6
+  y[1:8] <- y[1:8] + 9
+
+  obj <- load_data(
+    list(main = data.frame(uniform = uniform, subgroup = subgroup, few = few,
+                           row.names = ids)),
+    metadata = data.frame(sample_id = ids, y = y, sex = sex,
+                          stringsAsFactors = FALSE)
+  )
+
+  prep <- preprocess(obj, check_data(obj), plots = FALSE, quiet = TRUE)
+
+  list(
+    result = analyze(prep, "y", methods = "association", effort = "standard",
+                     heterogeneity = "sex", plots = FALSE, quiet = TRUE)
+  )
+
+}
+
+#' One latent process measured across two blocks, one decoy process confined
+#' to a single block, and four variables that genuinely stand alone.
+.cmo_module_demo <- function(n = 250, seed = 41) {
+
+  set.seed(seed)
+
+  ids <- paste0("M", seq_len(n))
+
+  process <- rnorm(n)
+  other <- rnorm(n)
+
+  rna <- sapply(1:6, function(i) 0.9 * process + rnorm(n, sd = 0.45))
+  prot <- sapply(1:4, function(i) 0.85 * process + rnorm(n, sd = 0.5))
+  decoy <- sapply(1:5, function(i) 0.9 * other + rnorm(n, sd = 0.45))
+  loners <- sapply(1:4, function(i) rnorm(n))
+
+  y <- 1.1 * process + rnorm(n)
+
+  rna <- cbind(rna, loners[, 1:2])
+  colnames(rna) <- c(paste0("g", 1:6), paste0("solo_g", 1:2))
+  rownames(rna) <- ids
+
+  prot <- cbind(prot, decoy, loners[, 3:4])
+  colnames(prot) <- c(paste0("p", 1:4), paste0("d", 1:5),
+                      paste0("solo_p", 1:2))
+  rownames(prot) <- ids
+
+  obj <- load_data(list(rna = rna, prot = prot),
+                   metadata = data.frame(sample_id = ids, y = y))
+
+  prep <- preprocess(obj, check_data(obj), plots = FALSE, quiet = TRUE)
+
+  list(
+    modules = analyze(prep, "y", methods = "association", effort = "fast",
+                      plots = FALSE, quiet = TRUE)$modules
+  )
+
+}
+
+#' A claim, and three cohorts to take it to: one where it holds, one where it
+#' is absent, and one where the direction holds at a fifth the size.
+.cmo_replication_demo <- function(seed = 5) {
+
+  cohort <- function(n, s, effect) {
+
+    set.seed(s)
+    ids <- paste0("R", s, "_", seq_len(n))
+
+    age <- rnorm(n, 55, 10)
+    protein <- 0.04 * age + rnorm(n)
+
+    load_data(
+      list(blood = data.frame(protein = protein, noise = rnorm(n),
+                              row.names = ids)),
+      metadata = data.frame(sample_id = ids,
+                            y = effect * protein + 0.02 * age + rnorm(n),
+                            age = age)
+    )
+
+  }
+
+  discovery <- cohort(300, seed, 0.9)
+
+  prep <- preprocess(discovery, check_data(discovery), plots = FALSE,
+                     quiet = TRUE)
+
+  result <- analyze(prep, "y", covariates = "age", methods = "association",
+                    effort = "standard", plots = FALSE, quiet = TRUE)
+
+  list(
+    claim = hypothesis(result, "protein"),
+    real = apply_preprocessing(cohort(280, 99, 0.9), prep, quiet = TRUE),
+    absent = apply_preprocessing(cohort(280, 77, 0), prep, quiet = TRUE),
+    weak = apply_preprocessing(cohort(600, 21, 0.15), prep, quiet = TRUE)
+  )
+
+}
 
 cat("\n")
 rule("=")
@@ -1363,6 +1682,21 @@ if (section(4, "preprocess(): executing the plan")) {
 
   assign("CLEAN", clean, envir = globalenv())
 
+  # Decided here rather than at the first analyze() call, because every
+  # section downstream needs it and the decision belongs to the preprocessed
+  # data: a person with one of eight hormone measurements looks measured
+  # before the filters run and is gone afterwards.
+
+  assign("ANALYSIS_BLOCKS",
+         .viable_blocks(clean$data$assays,
+                        prefer = intersect(STUDY$analysis_blocks,
+                                           names(clean$data$assays)),
+                        floor = 300),
+         envir = globalenv())
+
+  note("Blocks that can be analysed together: ",
+       paste(get("ANALYSIS_BLOCKS", envir = globalenv()), collapse = ", "))
+
   step("The full summary, including the executed pipeline")
   show(summary(clean), print_it = FALSE)
 
@@ -1499,10 +1833,51 @@ if (section(7, "analyze(): building evidence")) {
 
   clean <- get("CLEAN", envir = globalenv())
 
+  lesson("What analyze() is for, and what it refuses to be")
+
+  teach(
+    "Most analysis functions fit a model and hand it back. This one does not,
+     because 'the best model' is a bad answer to a biological question: the
+     model that predicts best is usually the one that leans hardest on
+     whatever was measured most accurately, which is a fact about the
+     laboratory rather than about the disease.
+
+     Instead every applicable method runs, each reports the relationships it
+     found, and an integrator merges them into one directed graph in which
+     every arrow carries its own evidence: which methods saw it, how large it
+     was, how precisely it was measured, and - the part that matters - what
+     would have to be true for it to mean what it looks like it means.
+
+     A relationship between two variables can arise three ways. One causes
+     the other. Something else causes both. Or the sampling created it. No
+     amount of statistics distinguishes these from a single cross-section,
+     so the engine never claims to; it records which of the three it has
+     ruled out and leaves the rest visible.")
+
   step("Run it")
 
-  results <- show(analyze(clean, outcome = STUDY$outcome,
-                          covariates = STUDY$covariates, plots = TRUE, quiet = FALSE))
+  teach(
+    "The blocks are named explicitly. NHANES gave its modules to different
+     subsamples of people, so requiring everyone to have everything leaves
+     nobody - a later section watches the package explain exactly that. Here
+     the set is the largest one that still leaves a real population.
+
+     The choice is made on the preprocessed blocks, not the raw ones, and the
+     difference is large. Before preprocessing, a person with one of eight
+     hormone measurements looks like someone who was measured. After it, the
+     filter that drops mostly-empty rows has removed them, and the hormone
+     block has gone from 1800 people to 413. Choosing blocks on the raw
+     counts would pick a set that cannot be analysed.")
+
+  analysis_blocks <- get("ANALYSIS_BLOCKS", envir = globalenv())
+
+  cat("\n  blocks analysed: ",
+      paste(analysis_blocks, collapse = ", "), "\n", sep = "")
+
+  results <- show(analyze(clean, blocks = ANALYSIS_BLOCKS,
+                          outcome = STUDY$outcome,
+                          covariates = STUDY$covariates,
+                          plots = TRUE, quiet = FALSE))
 
   assign("RESULTS", results, envir = globalenv())
 
@@ -1564,8 +1939,8 @@ if (section(7, "analyze(): building evidence")) {
   study <- get("STUDY_OBJ", envir = globalenv())
 
   must_fail(analyze(study, STUDY$outcome), "must be a PreprocessingResult")
-  must_fail(analyze(clean, "no_such_column"), "not a column")
-  must_fail(analyze(clean, STUDY$outcome, methods = "telepathy"),
+  must_fail(analyze(clean, blocks = ANALYSIS_BLOCKS, "no_such_column"), "not a column")
+  must_fail(analyze(clean, blocks = ANALYSIS_BLOCKS, STUDY$outcome, methods = "telepathy"),
             "Unknown generator")
   must_fail(analyze(clean, STUDY$outcome, blocks = "nope"), "Unknown block")
 
@@ -1581,7 +1956,7 @@ if (section(8, "The design decides which methods apply")) {
 
   step("Survival: an event plus a follow-up time")
 
-  surv <- show(analyze(clean, outcome = STUDY$outcome, time = STUDY$time,
+  surv <- show(analyze(clean, blocks = ANALYSIS_BLOCKS, outcome = STUDY$outcome, time = STUDY$time,
                        plots = FALSE, quiet = TRUE))
 
   cat("\n  design           :", surv$design$type, "\n")
@@ -1643,14 +2018,14 @@ if (section(8, "The design decides which methods apply")) {
 
   step("Predictive goal: a narrower set of methods")
 
-  pred <- show(analyze(clean, outcome = STUDY$outcome, goal = "predictive",
+  pred <- show(analyze(clean, blocks = ANALYSIS_BLOCKS, outcome = STUDY$outcome, goal = "predictive",
                        plots = FALSE, quiet = TRUE))
 
   cat("\n  methods run :", paste(names(pred$models), collapse = ", "), "\n")
 
   step("A single method, on demand")
 
-  one <- show(analyze(clean, outcome = STUDY$outcome,
+  one <- show(analyze(clean, blocks = ANALYSIS_BLOCKS, outcome = STUDY$outcome,
                       methods = "association", plots = FALSE, quiet = TRUE))
 
   cat("\n  methods run :", paste(names(one$models), collapse = ", "), "\n")
@@ -1847,7 +2222,7 @@ if (section(12, "The effort dial: buying rigour with time")) {
   step("effort = 'fast': the generators once, nothing else")
 
   t0 <- Sys.time()
-  fast <- show(analyze(clean, STUDY$outcome, effort = "fast",
+  fast <- show(analyze(clean, blocks = ANALYSIS_BLOCKS, STUDY$outcome, effort = "fast",
                        plots = FALSE, quiet = TRUE))
   cat(sprintf("\n  elapsed: %.1f s\n",
               as.numeric(difftime(Sys.time(), t0, units = "secs"))))
@@ -1855,7 +2230,7 @@ if (section(12, "The effort dial: buying rigour with time")) {
   step("effort = 'standard': adds model diagnostics and 50 resamples")
 
   t0 <- Sys.time()
-  standard <- show(analyze(clean, STUDY$outcome, effort = "standard",
+  standard <- show(analyze(clean, blocks = ANALYSIS_BLOCKS, STUDY$outcome, effort = "standard",
                            plots = FALSE, quiet = TRUE))
   cat(sprintf("\n  elapsed: %.1f s\n",
               as.numeric(difftime(Sys.time(), t0, units = "secs"))))
@@ -1880,7 +2255,7 @@ if (section(12, "The effort dial: buying rigour with time")) {
 
   step("Overriding a single piece")
 
-  custom <- show(analyze(clean, STUDY$outcome, effort = "fast",
+  custom <- show(analyze(clean, blocks = ANALYSIS_BLOCKS, STUDY$outcome, effort = "fast",
                          resample = 20, plots = FALSE, quiet = TRUE))
 
   cat("\n  resampling ran despite effort = 'fast': ",
@@ -2134,7 +2509,7 @@ if (section(17, "Reading the result one layer at a time")) {
        " together would hand the whole budget to whichever block has the",
        " most columns, and a small clinical block would vanish.")
 
-  tight <- show(analyze(clean, STUDY$outcome, max_features = 8,
+  tight <- show(analyze(clean, blocks = ANALYSIS_BLOCKS, STUDY$outcome, max_features = 8,
                         min_per_block = 2, effort = "fast",
                         plots = FALSE, quiet = TRUE), print_it = FALSE)
 
@@ -2214,7 +2589,7 @@ if (section(18, "How much to trust any of this")) {
 
   step("How many relationships appear when there is nothing to find")
 
-  calibrated <- show(analyze(clean, STUDY$outcome, effort = "fast",
+  calibrated <- show(analyze(clean, blocks = ANALYSIS_BLOCKS, STUDY$outcome, effort = "fast",
                              permutations = 15, plots = FALSE, quiet = TRUE),
                      print_it = FALSE)
 
@@ -2236,7 +2611,7 @@ if (section(18, "How much to trust any of this")) {
 
   step("Variables that should not appear, and did")
 
-  controls <- show(analyze(clean, STUDY$outcome, effort = "fast",
+  controls <- show(analyze(clean, blocks = ANALYSIS_BLOCKS, STUDY$outcome, effort = "fast",
                            negative_controls = STUDY$negative_controls,
                            plots = FALSE, quiet = TRUE),
                    print_it = FALSE)$diagnostics$negative_controls
@@ -2246,7 +2621,7 @@ if (section(18, "How much to trust any of this")) {
 
   step("Does the relationship hold in every subgroup?")
 
-  hetero <- show(analyze(clean, STUDY$outcome, effort = "fast",
+  hetero <- show(analyze(clean, blocks = ANALYSIS_BLOCKS, STUDY$outcome, effort = "fast",
                          heterogeneity = "sex", plots = FALSE, quiet = TRUE),
                  print_it = FALSE)$diagnostics$heterogeneity
 
@@ -2299,7 +2674,7 @@ if (section(19, "Reproducibility guarantees")) {
   set.seed(123); invisible(check_data(study)); after_check <- runif(3)
 
   set.seed(123)
-  invisible(analyze(clean, STUDY$outcome, plots = FALSE, quiet = TRUE,
+  invisible(analyze(clean, blocks = ANALYSIS_BLOCKS, STUDY$outcome, plots = FALSE, quiet = TRUE,
                     bootstrap = 30))
   after_analyze <- runif(3)
 
@@ -2318,8 +2693,8 @@ if (section(19, "Reproducibility guarantees")) {
 
   step("Does the same input give the same answer?")
 
-  a <- analyze(clean, STUDY$outcome, plots = FALSE, quiet = TRUE, bootstrap = 30)
-  b <- analyze(clean, STUDY$outcome, plots = FALSE, quiet = TRUE, bootstrap = 30)
+  a <- analyze(clean, blocks = ANALYSIS_BLOCKS, STUDY$outcome, plots = FALSE, quiet = TRUE, bootstrap = 30)
+  b <- analyze(clean, blocks = ANALYSIS_BLOCKS, STUDY$outcome, plots = FALSE, quiet = TRUE, bootstrap = 30)
 
   same <- identical(
     vapply(a$evidence, function(e) e$evidence_score, numeric(1)),
@@ -2341,10 +2716,1142 @@ if (section(19, "Reproducibility guarantees")) {
 }
 
 # =============================================================================
-# SECTION 20 - Inventory
+# SECTION 20 - Sample alignment, and the mistake everyone makes once
 # =============================================================================
 
-if (section(20, "What the package contains")) {
+if (section(20, "When blocks do not share people")) {
+
+  clean <- get("CLEAN", envir = globalenv())
+
+  lesson("Why twenty blocks can share nothing while every pair shares everything")
+
+  teach(
+    "This is the single most common way a multi-block analysis fails, and the
+     reason is arithmetic rather than biology.
+
+     A study rarely measures everything on everyone. NHANES is explicit about
+     it: the examination was given to all participants, but the laboratory
+     modules were assigned to subsamples. Volatile organic compounds went to
+     one rotating subsample, allergen serology to another, heavy metals to a
+     third. Each module covers thousands of people. No two modules cover the
+     same thousands.
+
+     Now consider what an analysis across all of them needs. To ask whether a
+     metal concentration relates to blood pressure while adjusting for diet,
+     one row must have all three. That row has to be in the intersection of
+     every block used. And an intersection of twenty sets, each missing a
+     different slice, empties out fast: if each block is missing a different
+     5% of people, twenty of them can between them exclude everybody.
+
+     The trap is that nothing looks wrong until it is too late. The overlap
+     matrix a reader naturally consults is pairwise, and pairwise everything
+     is fine - any two of these blocks share most of the cohort. A table of
+     pairs cannot express an intersection of twenty.")
+
+  step("What the pairwise matrix says")
+
+  validation <- get("QUALITY", envir = globalenv())
+
+  overlap <- validation$summary$overlap
+
+  if (!is.null(overlap) && nrow(overlap) > 1) {
+
+    off <- overlap[row(overlap) != col(overlap)]
+
+    cat(sprintf("\n  smallest overlap between any two blocks : %d\n", min(off)))
+    cat(sprintf("  largest overlap between any two blocks  : %d\n", max(off)))
+    cat(sprintf("  present in EVERY block                  : %d\n",
+                .report_or(validation$summary$shared_by_all, NA)))
+
+    teach(
+      "In this particular release the matrix does give the game away: one
+       module shares nobody with anything, so the smallest pairwise figure is
+       already zero. That is the easy case.")
+
+  }
+
+  step("The hard case, which the matrix cannot show at all")
+
+  teach(
+    "NHANES is unusually kind here. The dangerous version is the one where
+     every pairwise figure is healthy and the set is still empty, and it
+     needs constructing because a dataset that shows it is by definition one
+     where nothing looks wrong.
+
+     Eight blocks, each missing a different twenty-five people out of two
+     hundred. Every pair shares at least 150. All eight together share
+     none.")
+
+  demo_ids <- paste0("Q", 1:200)
+
+  demo_blocks <- lapply(seq_len(8), function(i) {
+    keep <- setdiff(demo_ids, demo_ids[((i - 1) * 25 + 1):(i * 25)])
+    matrix(rnorm(length(keep) * 3), length(keep), 3,
+           dimnames = list(keep, paste0("v", 1:3)))
+  })
+
+  names(demo_blocks) <- paste0("b", seq_len(8))
+
+  demo_obj <- load_data(
+    demo_blocks,
+    metadata = data.frame(sample_id = demo_ids, y = rnorm(200),
+                          stringsAsFactors = FALSE))
+
+  demo_v <- check_data(demo_obj)
+
+  demo_off <- demo_v$summary$overlap[row(demo_v$summary$overlap) !=
+                                       col(demo_v$summary$overlap)]
+
+  cat(sprintf("\n    smallest pairwise overlap : %d\n", min(demo_off)))
+  cat(sprintf("    largest pairwise overlap  : %d\n", max(demo_off)))
+  cat(sprintf("    present in EVERY block    : %d\n",
+              demo_v$summary$shared_by_all))
+
+  cat("\n")
+  show(demo_v$summary$cumulative_overlap)
+
+  teach(
+    "Nothing in the first two numbers hints at the third. Every pair looks
+     complete because every pair IS complete; the losses are in different
+     places and only compound when all eight are required at once. That is
+     why the running total is reported next to the matrix rather than left
+     for the reader to work out.")
+
+  cat("\n  And what check_data() says about it:\n\n")
+
+  for (w in grep("in every block", demo_v$warnings, value = TRUE)) {
+    cat(paste(strwrap(w, width = 72, prefix = "    ", initial = "  ! "),
+              collapse = "\n"), "\n", sep = "")
+  }
+
+  step("Where the count collapses, block by block")
+
+  teach(
+    "Blocks are added largest first. The row where the running total drops is
+     the block that cost you those people, which is the thing you need to
+     know and the thing a matrix cannot show.
+
+     Note that a person counts as being in a block only if the block measured
+     something on them. Their identifier appearing in it is not enough: a
+     module administered to ninety people, assembled against the full sample
+     list, carries a row for everyone with the other 1710 left empty. Counting
+     row names would call it complete.")
+
+  show(validation$summary$cumulative_overlap)
+
+  step("And again after preprocessing, which is where it bites")
+
+  teach(
+    "The audit above runs on the raw blocks. Preprocessing then drops rows
+     that are mostly empty, and for a study assembled from modules that lands
+     entirely on the people a module did not cover. The same ladder on the
+     preprocessed blocks is the one that decides whether an analysis can
+     run.")
+
+  show(.cumulative_overlap(clean$data$assays))
+
+  step("Asking for all twenty anyway")
+
+  teach(
+    "This is what a user does on their first run: name no blocks and let the
+     package use everything. Watch what it says. It does not merely report a
+     count of zero and stop - a count of zero tells you the analysis cannot
+     run and nothing about what to do next.")
+
+  must_fail(
+    analyze(clean, outcome = STUDY$outcome, covariates = STUDY$covariates,
+            quiet = TRUE),
+    "shared by all"
+  )
+
+  cat("\n  The full message:\n\n")
+
+  msg <- tryCatch(
+    analyze(clean, outcome = STUDY$outcome, covariates = STUDY$covariates,
+            quiet = TRUE),
+    error = conditionMessage)
+
+  cat(paste0("  | ", strsplit(msg, "\n")[[1]]), sep = "\n")
+
+  teach(
+    "Three things are in there that a bare error would not have.
+
+     The per-block counts, so the blocks measured on a handful of people are
+     visible at a glance. The named blocks whose removal would restore a
+     usable population, which is the actionable part. And the observation
+     that the raw blocks did share a population before preprocessing, which
+     rules out the explanation most people reach for first - that the sample
+     identifiers do not match between files.")
+
+  step("The same failure from a naming difference instead")
+
+  teach(
+    "The other way to get zero shared samples, and the one worth
+     distinguishing: the two files describe the same people under different
+     conventions. Nothing is wrong with the cohort at all.")
+
+  ids <- paste0("P", 1:120)
+
+  mismatched <- load_data(
+    list(
+      clinical = data.frame(bp = rnorm(120), bmi = rnorm(120),
+                            row.names = ids),
+      omics = data.frame(gene1 = rnorm(120), gene2 = rnorm(120),
+                         row.names = sub("^P", "SUBJ-", ids))
+    ),
+    metadata = data.frame(sample_id = ids, y = rnorm(120),
+                          stringsAsFactors = FALSE)
+  )
+
+  prepped <- preprocess(mismatched, check_data(mismatched), plots = FALSE,
+                        quiet = TRUE, force = TRUE)
+
+  cat("\n")
+
+  msg2 <- tryCatch(
+    analyze(prepped, "y", methods = "association", effort = "fast",
+            plots = FALSE, quiet = TRUE),
+    error = conditionMessage)
+
+  cat(paste0("  | ", strsplit(msg2, "\n")[[1]]), sep = "\n")
+
+  teach(
+    "It names the diagnosis and shows identifiers from both sides rather than
+     describing the difference, because seeing 'P1' beside 'SUBJ-1' settles
+     it instantly and a sentence about naming conventions does not.")
+
+  step("What to do about it")
+
+  teach(
+    "Three options, in the order worth trying.
+
+     Drop the blocks that cost the most people. The message names them. This
+     is usually right: a block measured on 113 of 1800 participants cannot
+     contribute to an analysis of the other 1687 whatever you do to it.
+
+     Analyse in groups. Nothing requires one analysis over all blocks. Two
+     analyses over overlapping sets answer more than one analysis over an
+     empty intersection.
+
+     Loosen the sample filters in the recipe, but understand what you are
+     buying: keeping rows that are mostly missing means imputing more of
+     them, and the data-quality discount in a later section is there because
+     that is not free.")
+
+  cat("\n  The set this walkthrough settled on:\n")
+
+  chosen <- get("ANALYSIS_BLOCKS", envir = globalenv())
+
+  cat("    ", paste(chosen, collapse = ", "), "\n", sep = "")
+
+  shared <- Reduce(intersect, lapply(chosen, function(b)
+    rownames(clean$data$assays[[b]])))
+
+  cat(sprintf("    %d blocks, %d people present in all of them\n",
+              length(chosen), length(shared)))
+
+}
+
+# =============================================================================
+# SECTION 21 - Causal diagrams and what an adjustment is worth
+# =============================================================================
+
+if (section(21, "check_dag(): what your adjustment is actually worth")) {
+
+  lesson("Why 'we controlled for it' is not an argument on its own")
+
+  teach(
+    "Adjusting for a variable is the standard move in observational research
+     and it is the one most often made without an argument. The reasoning
+     usually stops at 'it could be related to both, so we controlled for it',
+     and that reasoning is wrong often enough to matter.
+
+     Whether adjusting helps depends entirely on where the variable sits in
+     the causal structure, and there are three positions with three different
+     consequences.
+
+     A CONFOUNDER causes both the exposure and the outcome. Age causes both
+     higher blood pressure and higher mortality, so the raw association
+     between them is partly age. Adjusting for it removes that contamination.
+     This is the case everyone has in mind.
+
+     A MEDIATOR sits on the path between them. If smoking damages the lungs
+     and damaged lungs kill, adjusting for lung function removes part of
+     smoking's effect - the part that works through the lungs, which is most
+     of it. The adjusted estimate is smaller than the truth, and the more
+     careful the adjustment looks, the more of the effect it has deleted.
+
+     A COLLIDER is caused by both. Adjusting for one opens a path that was
+     closed and manufactures an association between things that have none.
+     Among hospital patients, two unrelated diseases appear correlated,
+     because being admitted required having something serious. Conditioning
+     on admission created the correlation.
+
+     The last two are the dangerous ones, because both look like diligence
+     and both make the estimate worse than doing nothing at all. Nothing in
+     the data distinguishes them. The correlation matrix is identical in all
+     three cases; only the structure differs, and structure is a claim about
+     the world, not a statistic.")
+
+  step("A structure you are willing to defend")
+
+  teach(
+    "So the package will not guess. It takes the structure you are prepared
+     to argue for and tells you what follows from it. A data.frame of arrows
+     is enough - a dagitty object or specification string works too.")
+
+  structure_df <- data.frame(
+    from = c("age", "age", "smoking", "lung_function", "disease"),
+    to   = c("smoking", "disease", "lung_function", "disease", "biomarker"),
+    stringsAsFactors = FALSE
+  )
+
+  show(structure_df)
+
+  teach(
+    "Read as biology: age influences whether someone smokes and independently
+     influences mortality, so it confounds. Smoking damages lung function
+     which in turn kills, so lung function mediates. And the disease raises
+     some biomarker, so the biomarker is downstream of the outcome
+     entirely.")
+
+  step("The confounder: adjusting helps")
+
+  show(check_dag(structure_df, "smoking", "disease", adjusted = "age"))
+
+  step("Adjusting for nothing")
+
+  show(check_dag(structure_df, "smoking", "disease"))
+
+  teach(
+    "It names the variable that would fix it rather than reporting that the
+     effect is unidentified and leaving you to work out which of your
+     measured variables to reach for.")
+
+  step("The mediator: adjusting deletes the effect")
+
+  show(check_dag(structure_df, "smoking", "disease",
+                 adjusted = c("age", "lung_function")))
+
+  teach(
+    "Note what the verdict leads with. It does not say 'a backdoor path
+     remains open', which would send you hunting for a confounder you do not
+     need. It names the conditioning that broke it.")
+
+  step("The collider: adjusting invents an association")
+
+  show(check_dag(structure_df, "smoking", "disease",
+                 adjusted = c("age", "biomarker")))
+
+  step("An effect nothing can identify")
+
+  teach(
+    "Some questions cannot be answered by any adjustment whatsoever. Asking
+     what the biomarker does to the disease that produced it is one of them:
+     the arrow points the other way and no set of control variables reverses
+     an arrow.")
+
+  show(check_dag(structure_df, "biomarker", "disease", adjusted = "age"))
+
+  step("A variable the diagram does not mention")
+
+  show(check_dag(structure_df, "not_in_the_diagram", "disease",
+                 adjusted = "age"))
+
+  teach(
+    "It declines rather than guessing. A structure that says nothing about a
+     variable licenses no conclusion about it, and inventing one would be the
+     package overriding the user on the one input only the user can supply.")
+
+  step("Guards")
+
+  must_fail(check_dag(NULL, "a", "b"), "No usable causal structure")
+  must_fail(.parse_dag(data.frame(a = 1, b = 2)), "'from' and 'to'")
+  must_fail(.parse_dag("this is not a dag"), "Could not parse")
+  must_fail(.parse_dag(42), "must be a dagitty object")
+
+  teach(
+    "That third one is worth a word. The dagitty package accepts text that is
+     not a DAG without complaining and hands back a graph containing a single
+     unnamed node. Passed on silently, that would audit every relationship as
+     'not in the diagram', which reads like a finding about your model rather
+     than the typo it is.")
+
+  step("Inside analyze()")
+
+  clean <- get("CLEAN", envir = globalenv())
+
+  teach(
+    "Supplying a diagram to analyze() audits every relationship against it.
+     It changes no estimate - a structure is an interpretive claim, not a
+     statistical one, and if it moved the numbers it would be fitting the
+     data to the belief. It changes what may be concluded.")
+
+  demo <- .cmo_dag_demo()
+
+  plain <- show(analyze(demo$prep, "disease", covariates = "age",
+                        methods = "association", effort = "fast",
+                        plots = FALSE, quiet = TRUE), print_it = FALSE)
+
+  audited <- show(analyze(demo$prep, "disease", covariates = "age",
+                          dag = demo$structure, methods = "association",
+                          effort = "fast", plots = FALSE, quiet = TRUE),
+                  print_it = FALSE)
+
+  cat("\n  Without a diagram, identifiable is unknown for every edge:\n")
+  cat("    ", paste(unique(vapply(plain$evidence, function(e)
+    as.character(e$identifiable), character(1))), collapse = ", "), "\n", sep = "")
+
+  cat("\n  With one:\n\n")
+
+  for (e in audited$evidence) {
+    cat(sprintf("    %-12s -> %-10s  identification %-12s identifiable %s\n",
+                e$source, e$target, e$identification, e$identifiable))
+  }
+
+  cat("\n")
+  cat(paste0("  ", grep("DAG audit", audited$logs, value = TRUE)), sep = "\n")
+
+  step("The estimates themselves are untouched")
+
+  before <- sort(vapply(plain$evidence, function(e) e$estimate, numeric(1)))
+  after <- sort(vapply(audited$evidence, function(e) e$estimate, numeric(1)))
+
+  cat(sprintf("\n  identical: %s\n", isTRUE(all.equal(before, after))))
+
+  step("Adjusting for the mediator, and being told")
+
+  harmful <- show(analyze(demo$prep, "disease",
+                          covariates = c("age", "inflammation"),
+                          dag = demo$structure, methods = "association",
+                          effort = "fast", plots = FALSE, quiet = TRUE),
+                  print_it = FALSE)
+
+  target <- Filter(function(e) identical(e$source, "protein"),
+                   harmful$evidence)
+
+  if (length(target) > 0) {
+
+    e <- target[[1]]
+
+    cat("\n    identification :", e$identification, " (downgraded from adjustment)\n")
+    cat("    identifiable   :", e$identifiable, "\n")
+    cat("    problem        :", paste(e$adjustment_problems, collapse = " "), "\n")
+    cat("    warning        :", paste(e$warnings, collapse = " "), "\n")
+
+  }
+
+  teach(
+    "The label is taken away, not just annotated. An estimate adjusted for a
+     mediator is further from the truth than the unadjusted one, so letting
+     it keep the 'adjusted' badge would present the more misleading number as
+     the more careful one - which is exactly backwards, and exactly what a
+     reader skimming badges would conclude.")
+
+}
+
+# =============================================================================
+# SECTION 22 - Measured values and filled-in values
+# =============================================================================
+
+if (section(22, "Data quality: what was measured, what was invented")) {
+
+  lesson("The uncertainty that disappears the moment you impute")
+
+  teach(
+    "Missing values are unavoidable in real cohorts, and the standard remedy
+     is imputation: estimate what the missing number probably was, from the
+     other people or the other variables, and carry on. It is usually the
+     right call. Throwing away every person with one gap would cost most of
+     the study.
+
+     But it has a consequence nothing downstream can see. Once a gap is
+     filled, no model can tell a measurement from an estimate. The confidence
+     interval that comes out the far end is exactly as narrow as if every
+     value had been real, because the uncertainty about the filling was
+     discarded at the moment of filling and never came back.
+
+     So a variable that arrived a quarter empty reports the same precision as
+     one measured on everybody. Two findings that look equally solid are not,
+     and nothing in the usual output says which is which.")
+
+  step("What preprocessing actually did")
+
+  clean <- get("CLEAN", envir = globalenv())
+
+  show(clean$quality$table)
+
+  teach(
+    "Read the two missing columns together. A block going from 12% missing to
+     0% did not improve: it was filled in. That is the entire point of this
+     section.")
+
+  step("Per feature, and by what method")
+
+  provenance <- .feature_quality(clean)
+
+  if (!is.null(provenance)) {
+
+    imputed <- provenance[provenance$imputed, , drop = FALSE]
+
+    cat(sprintf("\n  %d of %d features had values filled in.\n\n",
+                nrow(imputed), nrow(provenance)))
+
+    if (nrow(imputed) > 0) {
+      show(utils::head(imputed[order(-imputed$missing_percent),
+                               c("feature", "block", "missing_percent",
+                                 "imputation_method", "quality")], 10))
+    }
+
+  }
+
+  teach(
+    "Methods are not interchangeable, and the quality column reflects that.
+     Filling with the column mean collapses every gap onto a single number:
+     the variance of that part of the column becomes zero and any
+     relationship computed through it is dragged toward finding nothing.
+     Nearest-neighbour imputation borrows from correlated variables and keeps
+     most of the structure, so more of the filled portion still carries
+     information.
+
+     One thing that does NOT count against quality: values that were missing
+     and never filled. Those rows are dropped by whichever model needed them,
+     which costs sample size, and sample size is already in the precision
+     score. Charging for it twice would be counting the same problem
+     twice.")
+
+  step("On the relationships")
+
+  results <- get("RESULTS", envir = globalenv())
+
+  affected <- Filter(function(e) length(e$quality_flags) > 0, results$evidence)
+
+  cat(sprintf("\n  %d of %d relationships involve a variable partly filled in.\n",
+              length(affected), length(results$evidence)))
+
+  if (length(affected) > 0) {
+
+    e <- affected[[1]]
+
+    cat(sprintf("\n  %s -> %s\n", e$source, e$target))
+    cat(sprintf("    data quality    : %.3f\n", e$data_quality))
+    cat(sprintf("    limited by      : %s\n", e$quality_limited_by))
+    for (f in e$quality_flags) cat("    ", f, "\n", sep = "")
+
+  }
+
+  teach(
+    "An edge is worth no more than its worst-measured ingredient - both ends
+     and everything adjusted for - and the limiting one is named. Averaging
+     instead would let a clean outcome and four clean covariates hide an
+     exposure that was two-thirds reconstructed, which is the one thing the
+     reader needs told.
+
+     The number scales the evidence score rather than entering the confidence
+     score. Those are different problems with different remedies: a wide
+     interval is fixed by collecting more people, and a column that was half
+     invented is fixed by nothing.")
+
+  step("Does it survive without the filled-in rows?")
+
+  teach(
+    "The cheapest honest check. Refit using only the people whose value was
+     actually measured, and compare. Multiple imputation with Rubin's rules
+     is the thorough version and costs a full analysis per replicate; this
+     costs one model fit and catches the case that matters, which is a
+     finding that exists only because the gaps were filled.")
+
+  checked <- Filter(function(e) is.finite(e$complete_case_estimate),
+                    results$evidence)
+
+  for (e in utils::head(checked, 5)) {
+    cat(sprintf("\n  %-24s pooled %8.4f   measured rows only %8.4f (n = %d)  %s\n",
+                paste(e$source, "->", e$target), e$estimate,
+                e$complete_case_estimate, e$complete_case_n,
+                if (isTRUE(e$complete_case_agrees)) "same direction"
+                else "REVERSES"))
+  }
+
+  step("A finding that is entirely an artefact of the filling")
+
+  teach(
+    "Real data rarely produces a clean example of the failure, so here is one
+     built to order: an exposure that is pure noise among the people it was
+     measured on, whose missing values happen to be filled in a way that
+     tracks the outcome. The pooled estimate is positive. The truth, on the
+     measured rows, is negative.")
+
+  demo <- .cmo_artefact_demo()
+
+  cat(sprintf("\n  pooled estimate                : %+.4f\n", demo$edge$estimate))
+  cat(sprintf("  on the %d measured rows only   : %+.4f\n",
+              demo$edge$complete_case_n, demo$edge$complete_case_estimate))
+  cat(sprintf("  same direction                 : %s\n",
+              demo$edge$complete_case_agrees))
+  cat("\n")
+  for (w in demo$edge$warnings) cat("  ! ", w, "\n", sep = "")
+
+  step("Method fidelity, directly")
+
+  for (m in c("mean", "median", "mode", "pseudocount", "knn", "unheard_of")) {
+    cat(sprintf("  %-14s %.2f\n", m, .imputation_fidelity(m)))
+  }
+
+  teach(
+    "Deliberately coarse. What has to be right is the ranking between methods
+     and the direction of the penalty, not that 0.35 is measurable to two
+     decimal places.")
+
+}
+
+# =============================================================================
+# SECTION 23 - Would this repeat?
+# =============================================================================
+
+if (section(23, "The consensus graph: would this report repeat?")) {
+
+  lesson("A picture from one sample, and the picture it came from")
+
+  teach(
+    "Everything in a report comes from the particular people who happened to
+     end up in the study. Had recruitment gone slightly differently, would
+     the same relationships be at the top?
+
+     Per-relationship stability, which the package already reports, answers
+     that one relationship at a time. It cannot answer it about the picture.
+     A graph whose edges are each recovered six times in ten is a stable
+     structure if it is the same six edges every time, and no structure at
+     all if it is a different six. A single drawing cannot tell those
+     apart.
+
+     So the whole analysis is run again on hundreds of resamples of the same
+     data, and what comes back is compared to what was reported - as sets,
+     not one edge at a time. This costs nothing extra: the resampling was
+     already running and the replicate graphs were already being built and
+     thrown away.")
+
+  resampled <- get("RESAMPLED", envir = globalenv())
+
+  show(resampled$consensus)
+
+  step("Both directions of disagreement")
+
+  cg <- resampled$consensus
+
+  if (!is.null(cg) && cg$replicates > 0) {
+
+    a <- cg$agreement
+
+    cat(sprintf("\n  reported here          : %d\n", a$reported))
+    cat(sprintf("  recur reliably         : %d\n", a$consensus))
+    cat(sprintf("  in both                : %d\n", a$both))
+    cat(sprintf("  overlap (Jaccard)      : %.2f\n", .report_or(a$jaccard, NA)))
+
+    teach(
+      "The two disagreements are not equally visible to a reader, and the
+       second is the interesting one.
+
+       Relationships reported here that rarely came back are the weakest
+       thing in the document, and at least a sceptical reader would think to
+       ask about them.
+
+       Relationships that came back reliably but are not in the report are
+       invisible any other way. The sample that was collected happened not to
+       show them clearly enough to clear the threshold. Nobody reading the
+       report would ever learn they exist.")
+
+    if (length(a$reported_only) > 0) {
+      cat("\n  reported, rarely recur:\n")
+      cat(paste0("    ", utils::head(a$reported_only, 8)), sep = "\n")
+    }
+
+    if (length(a$consensus_only) > 0) {
+      cat("\n  recur, were not reported:\n")
+      cat(paste0("    ", utils::head(a$consensus_only, 8)), sep = "\n")
+    }
+
+  }
+
+  step("Recurrence is not recovery")
+
+  teach(
+    "A relationship that turns up in nine resamples out of ten pointing a
+     different way each time has been found nine times and established
+     nothing. Counting appearances alone would report it as highly stable, so
+     consensus membership needs a consistent sign as well as a
+     reappearance.")
+
+  if (!is.null(cg) && is.data.frame(cg$edges) && nrow(cg$edges) > 0) {
+    show(utils::head(cg$edges[, c("source", "target", "frequency",
+                                  "consistent_frequency", "sign_agreement",
+                                  "median_rank", "reported")], 10))
+  }
+
+  step("What this is not evidence of")
+
+  teach(
+    "This is the number most likely to be quoted out of context, so the
+     object carries the caveat with it.
+
+     A bootstrap resamples the people who were actually measured. It reports
+     how much the picture depends on which of them ended up in the study, and
+     nothing whatsoever about whether a relationship is real. A variable with
+     no connection to the outcome that happens to track it in this sample
+     will track it in almost every resample of that sample, and will look
+     perfectly stable here.
+
+     The question of whether these findings exceed what the same engine
+     produces on noise is a different one, and null calibration answers it.
+     That is the section on effort levels.")
+
+  if (!is.null(cg)) for (nt in cg$notes) teach(nt)
+
+}
+
+# =============================================================================
+# SECTION 24 - Does one number describe everybody?
+# =============================================================================
+
+if (section(24, "Heterogeneity: does one number describe everybody?")) {
+
+  lesson("What an average conceals")
+
+  teach(
+    "Every estimate in this package is an average over the people measured,
+     and an average says nothing about whether they resemble each other.
+
+     A coefficient of 0.4 is equally compatible with 0.4 in everybody, and
+     with 2.0 in a tenth of them and nothing in the rest. Those are different
+     findings. The first is a property of the population and supports a
+     population-level recommendation. The second is a property of a subgroup
+     nobody has identified, and acting on it as though it were the first
+     would treat nine people for no reason and under-treat the tenth.
+
+     There are two ways to ask, and they need different evidence.")
+
+  results <- get("RESULTS", envir = globalenv())
+
+  step("Without naming anything: how many people carry it")
+
+  teach(
+    "The usual situation is not knowing what modifies the effect, so the
+     first check assumes nothing. How much of the cohort would have to be
+     removed to halve the estimate?
+
+     For a relationship that holds broadly the answer is most of them,
+     because removing a handful of people barely shifts an average. For one
+     produced by a small unusual group, removing that group collapses it. The
+     samples are taken in order of their influence, so this is the worst
+     case - which is what someone deciding whether to believe a result needs,
+     rather than what a random deletion would do.")
+
+  checked <- Filter(function(e) is.finite(e$share_driving_effect),
+                    results$evidence)
+
+  for (e in utils::head(checked, 8)) {
+    cat(sprintf("  %-30s halved by removing %4d people (%.1f%%)%s\n",
+                paste(e$source, "->", e$target),
+                e$samples_driving_effect, 100 * e$share_driving_effect,
+                if (isTRUE(e$share_driving_effect <= 0.05)) "  <- a minority"
+                else ""))
+  }
+
+  teach(
+    "One guard is worth knowing about. An estimate indistinguishable from
+     zero is exempt, because halving nothing costs nothing and without that
+     rule every null result would be reported as driven by a handful of
+     people.")
+
+  lesson("Why every real relationship above is flagged, and why that is right")
+
+  teach(
+    "Every one of those is marked as resting on a minority, which looks like
+     a broken measure until you calibrate it. So here it is calibrated:
+     simulated data with the same number of people and the same kind of
+     outcome, at four known effect sizes.")
+
+  set.seed(1)
+
+  n_cal <- 687
+
+  for (b in c(0.2, 0.5, 1.0, 2.0)) {
+
+    x <- rnorm(n_cal)
+    y <- rbinom(n_cal, 1, stats::plogis(-1.2 + b * x))
+
+    co <- summary(stats::glm(y ~ x, family = stats::binomial()))$coefficients
+    cc <- .effect_concentration(y, x, binary = TRUE)
+
+    cat(sprintf("    true effect %.1f  ->  z = %4.1f   halved by %s\n", b,
+                co[2, 1] / co[2, 2],
+                if (is.null(cc)) "- (too close to zero to judge)"
+                else sprintf("%3d people (%.1f%%)", cc$k, 100 * cc$share)))
+
+  }
+
+  teach(
+    "The measure scales with strength exactly as it should: a relationship at
+     z = 4.7 is halved by 4% of the cohort, one at z = 12.5 needs half of
+     them. So the reading of the real data is not that the measure is broken.
+     It is that these associations between diet, routine bloods and five-year
+     mortality are all marginal - z of three to five - and a marginal
+     estimate genuinely is held up by whoever sits furthest from the middle.
+
+     That is worth sitting with, because it is what screening 150 variables
+     against a hard outcome in 687 people actually buys you. Nothing here is
+     wrong. The engine found what is there, and what is there is thin. A
+     paper reporting the top of that list as a discovery would be reporting
+     the fifteen most unusual people in the study.")
+
+  step("The three shapes, side by side")
+
+  teach(
+    "Real data cannot show all three cleanly, so here they are built to
+     order: one relationship uniform across everybody, one present only in
+     men, and one manufactured by eight extreme individuals.")
+
+  shapes <- .cmo_shapes_demo()
+
+  for (e in shapes$result$evidence) {
+
+    cat(sprintf("\n  %s -> %s   estimate %+.3f\n", e$source, e$target,
+                e$estimate))
+    cat(sprintf("    halved by removing : %s people (%s)\n",
+                e$samples_driving_effect,
+                if (is.finite(e$share_driving_effect))
+                  sprintf("%.1f%%", 100 * e$share_driving_effect) else "-"))
+    cat(sprintf("    differs by sex     : FDR %s\n",
+                format(signif(e$heterogeneity_fdr, 3))))
+
+    if (is.data.frame(e$effect_by_group) && nrow(e$effect_by_group) > 0) {
+      for (g in seq_len(nrow(e$effect_by_group))) {
+        cat(sprintf("      %-4s n = %-4d slope %+.3f\n",
+                    e$effect_by_group$group[g], e$effect_by_group$n[g],
+                    e$effect_by_group$slope[g]))
+      }
+    }
+
+  }
+
+  teach(
+    "Look at what the two checks catch. The uniform relationship needs a
+     sixth of the cohort removed and shows no subgroup difference. The one
+     built into men only reverses sign between the groups. The one carried by
+     eight people is halved by removing five.
+
+     And note the middle case is flagged by BOTH checks. That is not a
+     coincidence: a pooled estimate over groups that disagree is a
+     near-cancellation, and a near-cancellation is by nature held up by
+     whoever is most extreme.")
+
+  step("Naming a candidate modifier")
+
+  teach(
+    "The second way needs you to guess what modifies the effect. When you
+     have a candidate - sex, age group, treatment arm - name it and every
+     relationship is tested against it directly.")
+
+  hetero <- get("RESAMPLED", envir = globalenv())$diagnostics$heterogeneity
+
+  if (isTRUE(hetero$available)) {
+    show(utils::head(hetero$table[, c("feature", "moderator", "interaction_p",
+                                      "interaction_fdr", "groups", "slopes",
+                                      "same_sign")], 8))
+  }
+
+  teach(
+    "Read a null here with care. Detecting that an effect DIFFERS between
+     groups needs several times the data that detecting the effect itself
+     needs - a study powered to find a main effect is usually nowhere near
+     able to find an interaction. So 'no difference detected' is weak
+     reassurance, not evidence that the effect is uniform, and the package
+     says so rather than letting the absence read as a finding.")
+
+}
+
+# =============================================================================
+# SECTION 25 - Things measured many times
+# =============================================================================
+
+if (section(25, "Modules: the level between a variable and a block")) {
+
+  lesson("Fifty transcripts are not fifty findings")
+
+  teach(
+    "Measured variables are rarely independent things.
+
+     Fifty transcripts that rise and fall together are one biological process
+     measured fifty times. Testing each separately answers a question nobody
+     asked, pays the multiplicity penalty fifty times over, and reports fifty
+     findings where there is one. Worse, it makes the process look
+     overwhelming in a ranked list simply because it was measured often.
+
+     Two resolutions already exist here. The single variable, and the block -
+     but a block is whatever you called a block when you loaded the data,
+     which is a fact about how the files arrived rather than about biology.
+     The missing level is the one the data can define for itself.")
+
+  results <- get("RESULTS", envir = globalenv())
+
+  show(results$modules)
+
+  step("Why correlation and not the evidence graph")
+
+  teach(
+    "The package already detects communities in the evidence graph, and it
+     would have been cheaper to reuse them. It would also have been wrong.
+
+     A community there groups variables that each have a link to the outcome.
+     They can do that while being completely uncorrelated with each other -
+     five independent risk factors form a community without being one thing.
+     Summarising such a group by its first principal component summarises
+     nothing.
+
+     A module has to be a set of variables that actually vary together before
+     summarising it means anything, so modules are clustered on correlation.
+     Variables that move in opposite directions count as together: two
+     measures of the same thing on reversed scales are one thing, and the
+     sign is settled afterwards.")
+
+  step("The summary, and how much it captures")
+
+  mg <- results$modules
+
+  if (is.data.frame(mg$modules) && nrow(mg$modules) > 0) {
+
+    show(mg$modules[, c("module", "size", "blocks", "composition",
+                        "variance_explained", "coherent", "cross_block")])
+
+    teach(
+      "The variance column is the honesty check. If a module's first
+       component carries 85% of how its members vary, it genuinely stands for
+       them. If it carries 30%, it is one direction through a cloud and the
+       'module effect' summarises nothing - which is reported rather than
+       hidden, because a group that failed to cohere is itself a finding
+       about the data.
+
+       Modules spanning several blocks are flagged. They are the only thing
+       at this resolution that could be a mechanism rather than an artefact
+       of one measurement platform: transcripts moving with metabolites is a
+       claim about biology, transcripts moving with transcripts might be a
+       claim about the array.")
+
+  }
+
+  step("Each module against the outcome")
+
+  if (is.data.frame(mg$edges) && nrow(mg$edges) > 0) {
+    show(mg$edges[, c("module", "estimate", "ci_lower", "ci_upper", "fdr",
+                      "n", "coherent", "cross_block")])
+  }
+
+  step("A planted process, recovered")
+
+  teach(
+    "Real data has no known answer, so here is a case where the answer is
+     known: one latent process measured six times in one block and four times
+     in another, a second process confined to one block and unrelated to the
+     outcome, and four variables that genuinely stand alone.")
+
+  planted <- .cmo_module_demo()
+
+  show(planted$modules$modules[, c("module", "size", "blocks",
+                                   "variance_explained", "cross_block")])
+
+  cat("\n  membership:\n")
+  mb <- planted$modules$membership
+  for (k in sort(unique(stats::na.omit(mb)))) {
+    cat(sprintf("    module_%d : %s\n", k,
+                paste(names(mb)[which(mb == k)], collapse = ", ")))
+  }
+
+  cat("\n  left out of every module: ",
+      paste(names(mb)[is.na(mb)], collapse = ", "), "\n", sep = "")
+
+  show(planted$modules$edges[, c("module", "estimate", "fdr", "cross_block")])
+
+  teach(
+    "The cross-block module is the planted process and it is related to the
+     outcome. The single-block one is the decoy and it is not. The four
+     independent variables were left alone rather than forced somewhere.")
+
+  step("What a module is not")
+
+  teach(
+    "A module and the variables inside it are the same measurements at two
+     resolutions, not two findings. If both appear in a report they agree
+     because they are made of each other, and neither confirms the other.
+     Count the finding once.
+
+     One technical detail decides whether the two can even be compared. A raw
+     first principal component is about the square root of its eigenvalue
+     wide, so a ten-variable module arrives roughly three times wider than
+     its own members, and its coefficient comes out three times smaller for
+     no reason but arithmetic. Read beside the members, that looks like the
+     module contradicting what it is made of. The component is scaled to unit
+     variance so that its coefficient means what a variable's coefficient
+     means: change per standard deviation.")
+
+}
+
+# =============================================================================
+# SECTION 26 - From evidence to a claim
+# =============================================================================
+
+if (section(26, "hypothesis(): stating something that could be wrong")) {
+
+  lesson("A result is not yet a statement")
+
+  teach(
+    "A graph of forty scored relationships is not a scientific statement. It
+     is material from which statements can be made, and everything
+     interesting happens in the making: which relationship, at what strength,
+     under which assumptions, and what would have to be observed for it to be
+     wrong.
+
+     That last question is the one a result never answers and a hypothesis
+     must. It is also the one a reader can act on. 'Residual confounding
+     cannot be excluded' is true of almost every observational finding ever
+     published and tells nobody what to do next; 'measure a confounder
+     associated with both at 4.4 or more' names an experiment.")
+
+  results <- get("RESULTS", envir = globalenv())
+
+  step("The strongest claim in the analysis")
+
+  h <- show(hypothesis(results))
+
+  step("What decides the grade")
+
+  teach(
+    "Identification, and nothing else.
+
+     Precision, agreement between methods and stability under resampling all
+     describe how WELL an association was estimated. None of them says
+     anything about what it is evidence OF. Letting them raise the grade
+     would turn a well-measured correlation into a cause by arithmetic, which
+     is the single most common way a paper overstates its result.
+
+     So a relationship found by six methods, surviving every resample, with a
+     confidence interval a tenth as wide as its estimate, is still an
+     association if nothing identified it. The sentence changes with the
+     grade rather than with the score - 'higher X goes with higher Y'
+     describes what was seen, 'raising X would raise Y' describes what would
+     happen, and only identification licenses the second.")
+
+  step("A named relationship instead of the top one")
+
+  available <- unique(vapply(
+    Filter(function(e) identical(e$target, results$outcome$name),
+           results$evidence),
+    function(e) e$source, character(1)))
+
+  if (length(available) > 1) show(hypothesis(results, available[2]))
+
+  step("What would settle it")
+
+  teach(
+    "Each item comes from a specific weakness of this specific relationship
+     rather than from a stock paragraph of caution, which is why a clean
+     claim gets a short list and a fragile one gets a pointed one.")
+
+  for (item in h$settles) {
+    cat("\n")
+    cat(paste(strwrap(item, width = 72, prefix = "    ", initial = "  > "),
+              collapse = "\n"), "\n", sep = "")
+  }
+
+  step("A claim with a diagram behind it")
+
+  teach(
+    "Supplying a causal diagram that confirms the adjustment does raise the
+     grade, conditionally and explicitly. That is the entire purpose of
+     auditing an adjustment against a stated structure; leaving the grade
+     alone would make the audit decorative.")
+
+  demo <- .cmo_dag_demo()
+
+  identified <- analyze(demo$prep, "disease", covariates = "age",
+                        dag = demo$structure, methods = "association",
+                        effort = "fast", plots = FALSE, quiet = TRUE)
+
+  show(hypothesis(identified, "protein"))
+
+  step("Taking a claim to a cohort it has never seen")
+
+  teach(
+    "The claim carries its own protocol - which outcome, which covariates,
+     which model - so what runs on the new data is what ran on the old. This
+     is the reproducibility promise made concrete rather than asserted.")
+
+  replication <- .cmo_replication_demo()
+
+  cat("\n  A cohort where the relationship is real:\n")
+  show(test_hypothesis(replication$claim, replication$real))
+
+  cat("\n  A cohort where it is not:\n")
+  absent <- test_hypothesis(replication$claim, replication$absent)
+
+  cat(sprintf("    verdict : %s\n", absent$replication$verdict))
+  cat(sprintf("    there   : %+.4f     here: %+.4f\n",
+              absent$replication$estimate, absent$replication$original))
+  cat(sprintf("    ratio   : %.3f\n", absent$replication$ratio))
+
+  cat("\n  A cohort where the direction holds but the effect is a fifth the size:\n")
+  weak <- test_hypothesis(replication$claim, replication$weak)
+
+  cat(sprintf("    verdict : %s\n", weak$replication$verdict))
+  cat(sprintf("    ratio   : %.3f\n", weak$replication$ratio))
+
+  teach(
+    "That last case is the one worth dwelling on. The direction held and the
+     result is statistically significant, so a replication judged on p-values
+     would be announced as a success. The effect is a fifth the size. Judging
+     on direction and magnitude reports it as what it is.")
+
+  step("When the new cohort cannot answer the question")
+
+  cohort <- replication$real
+
+  no_outcome <- cohort
+  no_outcome$metadata[[replication$claim$protocol$outcome]] <- NULL
+
+  must_fail(test_hypothesis(replication$claim, no_outcome), "column to test")
+
+  must_fail(test_hypothesis(replication$claim, "not a cohort"),
+            "after preprocessing")
+
+  must_fail(test_hypothesis("not a hypothesis", cohort), "must be a Hypothesis")
+
+  must_fail(hypothesis(results, "no_such_variable"), "no relationship with")
+
+  must_fail(hypothesis("not a result"), "must be a CMOResult")
+
+  step("Covariates the new cohort does not have")
+
+  teach(
+    "Named rather than quietly dropped. A model missing an adjustment is not
+     the model the claim was made with, and reporting the comparison without
+     saying so would be the most flattering possible reading.")
+
+  stripped <- cohort
+  stripped$metadata$age <- NULL
+
+  partial <- test_hypothesis(replication$claim, stripped)
+
+  cat(sprintf("\n    used    : %s\n",
+              paste(partial$replication$covariates_used, collapse = ", ")))
+  cat(sprintf("    missing : %s\n",
+              paste(partial$replication$covariates_missing, collapse = ", ")))
+  for (nt in partial$replication$notes) cat("    ! ", nt, "\n", sep = "")
+
+}
+
+# =============================================================================
+# SECTION 27 - Inventory
+# =============================================================================
+
+if (section(27, "What the package contains")) {
 
   step("Everything exported")
 
@@ -2382,7 +3889,9 @@ if (section(20, "What the package contains")) {
   classes <- c("MultiOmicsData", "BlockDiagnostics",
                "TransformationRecommendation", "PreprocessingRecipe",
                "PreprocessingResult", "CMOValidation", "CMOResult",
-               "EvidenceEdge", "EvidenceGraph")
+               "EvidenceEdge", "EvidenceGraph",
+               "ConsensusGraph", "ModuleGraph", "Hypothesis",
+               "CMODagCheck", "CMOExplanation", "CMOCounterfactual")
 
   for (g in generics) {
     for (cls in classes) {
