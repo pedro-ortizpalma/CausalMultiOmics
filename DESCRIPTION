@@ -26,9 +26,12 @@ Suggests:
     dagitty,
     glmnet,
     igraph,
+    knitr,
     lavaan,
     lme4,
     ranger,
+    rmarkdown,
     survival,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
+VignetteBuilder: knitr

@@ -16,3 +16,9 @@ tests/manual/test_data/*
 
 # Base graphics writes this whenever the suite draws without an open device.
 Rplots.pdf
+/doc/
+/Meta/
+
+# Built vignettes land here; the sources in vignettes/ are what is tracked.
+doc/
+Meta/

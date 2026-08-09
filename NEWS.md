@@ -1,5 +1,40 @@
 # CausalMultiOmics 0.1.0
 
+## Data with a known answer
+
+* `simulate_data()` builds a multi-block study from a causal structure you
+  specify and records what it planted, so a result can be checked rather than
+  admired. Real data cannot show that an analysis is right — it has no answer
+  to check against — and every claim this package makes about recovering a
+  mediator, catching an artefact of imputation or separating a latent process
+  from its members needs a truth someone put there on purpose.
+* It replaces thirty-five small generators written one at a time across the
+  test suite and the walkthrough, each planting its own truth its own way.
+  That duplication was the argument for writing it.
+* Structure and magnitude arrive in one object, because they are the same
+  claim: a `data.frame` of `from`, `to` and `effect`. Variables are generated
+  in topological order, so an effect of 0.8 is what a regression coefficient
+  will recover.
+* Anything the structure names and no block claims becomes a metadata column.
+  That is how covariates and effect modifiers arrive, and it is also how a
+  mediator is made unmeasured.
+* Covers what makes real data hard: latent processes spanning blocks,
+  missingness at a stated rate or concentrated where the outcome is high,
+  batch shifts, and blocks measured on different fractions of the cohort.
+* `misc$simulation` records the structure, which features are pure noise,
+  which cells were blanked, module membership, block coverage and the seed.
+* The caller's random number generator is restored afterwards, so an example
+  in a vignette cannot change every simulation the reader runs next.
+* Refuses a cycle rather than looping over it: generating a variable needs
+  its parents to exist first, and a cycle has no such order.
+
+## Documentation
+
+* A vignette, built from `simulate_data()` so every number in it is
+  reproducible and every claim is checked against a planted truth. It walks
+  from raw blocks to a stated hypothesis and its replication in a second
+  cohort.
+
 ## A claim, rather than a body of evidence
 
 * `hypothesis()` takes one relationship out of a result and states it as a
