@@ -284,7 +284,37 @@ must_fail <- function(expr, expect = NULL) {
 # right.
 # =============================================================================
 
-.nhanes_path <- file.path("tests", "manual", "test_data", "nh_99-06.Rdata")
+# Looked for beside this script as well as under the working directory. A
+# path relative to the package root is correct only when the package root is
+# where you happen to be standing, and being one directory out is not a
+# mistake worth silently downgrading the entire walkthrough for.
+
+.find_nhanes <- function() {
+
+  relative <- file.path("tests", "manual", "test_data", "nh_99-06.Rdata")
+
+  # Where this file lives, when it can be worked out. Set by source(), absent
+  # under Rscript, and given as an argument by neither.
+  here <- tryCatch(
+    dirname(normalizePath(sys.frame(1)$ofile, mustWork = FALSE)),
+    error = function(e) NA_character_
+  )
+
+  candidates <- c(
+    relative,
+    if (!is.na(here) && nzchar(here))
+      file.path(here, "test_data", "nh_99-06.Rdata") else NULL,
+    file.path("..", relative),
+    file.path("..", "..", relative)
+  )
+
+  found <- candidates[file.exists(candidates)]
+
+  if (length(found) > 0) found[1] else relative
+
+}
+
+.nhanes_path <- .find_nhanes()
 
 # -----------------------------------------------------------------------------
 # The blocks
@@ -787,7 +817,11 @@ NHANES_NEGATIVE_CONTROLS <- "BMXHT"
 #' This is the same arithmetic \code{check_data()} reports as
 #' \code{cumulative_overlap}, done in advance so the walkthrough has a
 #' workable set rather than discovering the problem twenty blocks in.
-.viable_blocks <- function(assays, prefer = character(), floor = 400) {
+#' @param floor how many people a set has to retain to be worth analysing.
+#'   Derived from the data by default: a fixed number written for a cohort of
+#'   1800 silently rejects every block of a study with ninety, which is how
+#'   the fallback study came to produce no analysable blocks at all.
+.viable_blocks <- function(assays, prefer = character(), floor = NULL) {
 
   # Refused rather than answered. Handed nothing, the loop below returns an
   # empty set perfectly happily, and an empty set is not a finding about the
@@ -816,6 +850,12 @@ NHANES_NEGATIVE_CONTROLS <- "BMXHT"
 
   sizes <- vapply(names(assays), function(nm) length(ids_of(nm)), integer(1))
 
+  # A quarter of the best-covered block, never fewer than ten. Scale-free, so
+  # the same call works on eighteen hundred adults and on ninety simulated
+  # ones without either being tuned for.
+
+  if (is.null(floor)) floor <- max(10L, as.integer(0.25 * max(sizes, 0L)))
+
   # Preferred blocks are tried first, then everything else largest first.
   # Nothing is taken on trust: a preferred block that would break the
   # intersection is dropped like any other, because returning a set the
@@ -840,6 +880,26 @@ NHANES_NEGATIVE_CONTROLS <- "BMXHT"
       keep <- c(keep, nm)
       shared <- candidate
     }
+
+  }
+
+  # Nothing cleared the floor. Returning an empty set here is what turned two
+  # separate failures into the same baffling "No usable blocks to analyse"
+  # several sections downstream, so it reports the counts it was working
+  # from instead. Whatever is wrong is visible in that table.
+
+  if (length(keep) == 0) {
+
+    stop(paste0(
+      sprintf("No block has %d people with anything measured on them, so no set of blocks can be analysed together.\n",
+              floor),
+      "  Measured people per block:\n",
+      paste(sprintf("    %-24s %d of %d rows", names(sizes), sizes,
+                    vapply(names(assays), function(nm) nrow(assays[[nm]]),
+                           integer(1))),
+            collapse = "\n"),
+      "\n  A block at zero was emptied by preprocessing, or arrived empty."
+    ), call. = FALSE)
 
   }
 
@@ -1164,7 +1224,7 @@ make_nhanes_study <- function(path = .nhanes_path,
     # allergens on none of them. Asking for all twenty is a real mistake a
     # user makes, and one section is devoted to watching the package explain
     # it, but the rest of the walkthrough needs a set that works.
-    analysis_blocks = .viable_blocks(assays, core_blocks, floor = 400),
+    analysis_blocks = .viable_blocks(assays, core_blocks),
 
     # Kept for the sections that report on data preparation.
     preparation = list(
@@ -1259,6 +1319,9 @@ make_simulated_study <- function(n = 90, seed = 42,
 
 STUDY <- if (file.exists(.nhanes_path)) {
 
+  cat("Using the real NHANES release: ", normalizePath(.nhanes_path), "\n",
+      sep = "")
+
   tryCatch(make_nhanes_study(max_vars_per_block = Inf), error = function(e) {
     cat("Could not read the NHANES file (", conditionMessage(e),
         "); using simulated data.\n", sep = "")
@@ -1266,6 +1329,25 @@ STUDY <- if (file.exists(.nhanes_path)) {
   })
 
 } else {
+
+  # Said loudly, and with the reason. The path is relative to the package
+  # root, so running from anywhere else falls through to here and every
+  # number below quietly describes ninety simulated people instead of
+  # eighteen hundred real ones. Nothing downstream announces the swap, and a
+  # reader comparing output to the transcript would find nothing matching and
+  # no explanation.
+
+  rule("!")
+  cat("NHANES DATA NOT FOUND - running on simulated data instead.\n\n")
+  cat("  looked for      : ", .nhanes_path, "\n", sep = "")
+  cat("  relative to     : ", getwd(), "\n", sep = "")
+  cat("\n  That path is relative to the package root. If you are running from\n")
+  cat("  somewhere else, setwd() to the root and start again; otherwise see\n")
+  cat("  tests/manual/test_data/SOURCE.md for where to get the release.\n")
+  cat("\n  The walkthrough still runs end to end. It describes 90 simulated\n")
+  cat("  people rather than 1800 real ones, so every number below will differ\n")
+  cat("  from the published transcript.\n")
+  rule("!")
 
   make_simulated_study()
 
@@ -1708,7 +1790,7 @@ if (section(4, "preprocess(): executing the plan")) {
          .viable_blocks(clean$data$assays,
                         prefer = intersect(STUDY$analysis_blocks,
                                            names(clean$data$assays)),
-                        floor = 300),
+                        floor = NULL),
          envir = globalenv())
 
   note("Blocks that can be analysed together: ",
