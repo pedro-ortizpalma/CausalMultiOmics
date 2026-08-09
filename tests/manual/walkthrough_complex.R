@@ -789,6 +789,21 @@ NHANES_NEGATIVE_CONTROLS <- "BMXHT"
 #' workable set rather than discovering the problem twenty blocks in.
 .viable_blocks <- function(assays, prefer = character(), floor = 400) {
 
+  # Refused rather than answered. Handed nothing, the loop below returns an
+  # empty set perfectly happily, and an empty set is not a finding about the
+  # data - it is a sign that whatever was supposed to produce these blocks
+  # did not. Passing it on turns a failure in one section into a baffling
+  # "no usable blocks" three sections later.
+
+  if (!is.list(assays) || length(assays) == 0) {
+
+    stop(paste("No blocks to choose from. This usually means preprocessing",
+               "failed earlier and CLEAN is empty; look further up the",
+               "transcript for the first thing that went wrong."),
+         call. = FALSE)
+
+  }
+
   ids_of <- function(nm) {
     x <- assays[[nm]]
     rows <- rownames(x)
@@ -1242,20 +1257,6 @@ make_simulated_study <- function(n = 90, seed = 42,
 
 }
 
-# STUDY <- if (file.exists(.nhanes_path)) {
-#
-#   tryCatch(make_nhanes_study(), error = function(e) {
-#     cat("Could not read the NHANES file (", conditionMessage(e),
-#         "); using simulated data.\n", sep = "")
-#     make_simulated_study()
-#   })
-#
-# } else {
-#
-#   make_simulated_study()
-#
-# }
-
 STUDY <- if (file.exists(.nhanes_path)) {
 
   tryCatch(make_nhanes_study(max_vars_per_block = Inf), error = function(e) {
@@ -1681,6 +1682,22 @@ if (section(4, "preprocess(): executing the plan")) {
   clean <- show(preprocess(study, quality, plots = TRUE, quiet = FALSE))
 
   assign("CLEAN", clean, envir = globalenv())
+
+  # Everything downstream is built on this, so a failure here is worth
+  # stopping for. Carrying on leaves CLEAN empty and produces a confusing
+  # complaint about blocks in a section the reader will not connect to this
+  # one.
+
+  if (is.null(clean) || length(.report_or(clean$data$assays, list())) == 0) {
+
+    rule("!")
+    cat("PREPROCESSING FAILED. Nothing below this point can run.\n")
+    cat("The reason is the [ERROR] line just above.\n")
+    rule("!")
+
+    stop("preprocess() did not return a usable result.", call. = FALSE)
+
+  }
 
   # Decided here rather than at the first analyze() call, because every
   # section downstream needs it and the decision belongs to the preprocessed
