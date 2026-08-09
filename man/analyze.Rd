@@ -23,6 +23,8 @@ analyze(
   negative_controls = NULL,
   modifiable = NULL,
   dag = NULL,
+  forbidden = NULL,
+  required = NULL,
   max_features = 150,
   min_per_block = 10,
   bootstrap = 200,
@@ -97,6 +99,19 @@ dagitty specification string, or a data.frame with \code{from} and
 adjustment actually identifies each effect, rather than only recording
 that something was adjusted for. It never changes an estimate; it changes
 what may be claimed about one. See \code{\link{check_dag}}.}
+
+\item{forbidden}{Optional data.frame of \code{from}/\code{to} pairs that
+structure learning may not propose. Ruling out relationships that cannot
+exist removes them from a superexponential search rather than from its
+output, which is worth more than any amount of extra computation. Only
+the Bayesian network generator can use it.}
+
+\item{required}{Optional data.frame of \code{from}/\code{to} pairs that
+structure learning must include.
+
+Both are claims about the world in the same way a DAG is, so both are
+recorded as assumptions on every edge they shaped: a constraint applied
+silently would let the caller's own belief reappear as a finding.}
 
 \item{max_features}{Cap on the number of features carried into the
 pairwise stage. Features are screened against the outcome first, and the

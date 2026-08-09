@@ -28,6 +28,30 @@
 * Refuses a cycle rather than looping over it: generating a variable needs
   its parents to exist first, and a cycle has no such order.
 
+## Taking the graph elsewhere
+
+* `export_graph()` writes the evidence graph as GraphML (Cytoscape, Gephi),
+  Graphviz DOT, or JSON. Every edge attribute travels with it — the score,
+  the three components it is made of, the identification, the data quality —
+  because a graph exported with only its arrows arrives stripped of
+  everything that made it worth exporting.
+* JSON is written directly, so a user with none of the optional packages
+  installed can still get the graph out.
+* GML and Pajek are deliberately absent. Pajek carries no edge attributes and
+  igraph's GML writer rejects the vertex table this package produces; a
+  format that silently discards the answer or fails outright is worse than
+  one that is not offered.
+
+## Constraining structure learning
+
+* `analyze(..., forbidden = , required = )` passes a blacklist and whitelist
+  to Bayesian network structure learning. Ruling out relationships that
+  cannot exist removes them from a superexponential search rather than from
+  its output, which is worth more than any amount of extra computation.
+* Both are claims about the world in the same way a DAG is, so both are
+  recorded as assumptions on every edge they shaped. A constraint applied
+  silently would let the caller's own belief reappear to them as a finding.
+
 ## Documentation
 
 * A vignette, built from `simulate_data()` so every number in it is

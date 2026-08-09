@@ -6182,3 +6182,182 @@ report.CMOResult <- function(object,
   invisible(object)
 
 }
+
+# =============================================================================
+# Taking the graph elsewhere
+# =============================================================================
+
+#' Write the evidence graph in a format another tool can open
+#'
+#' The graph is the deliverable for a good many users, and most of them will
+#' want to lay it out somewhere this package has no business trying to be.
+#' Cytoscape and Gephi both read GraphML, which is the default.
+#'
+#' Every edge attribute travels with it, so the evidence survives the export:
+#' the score, the three components it is made of, the identification, the
+#' data quality and the FDR are all readable in the receiving tool. A graph
+#' exported with only its arrows would arrive stripped of everything that
+#' made it worth reading.
+#'
+#' @param object A \code{CMOResult}.
+#' @param file Where to write. The extension is not checked against
+#'   \code{format}; the format argument decides.
+#' @param format One of \code{"graphml"} (Cytoscape, Gephi), \code{"dot"}
+#'   (Graphviz) or \code{"json"}. The first two go through \pkg{igraph};
+#'   \code{"json"} is written directly and needs nothing installed.
+#'
+#'   GML and Pajek are deliberately absent. Pajek carries no edge attributes,
+#'   so a graph exported to it arrives as arrows with none of the evidence
+#'   that made it worth exporting, and igraph's GML writer rejects the vertex
+#'   table this package produces. A format that silently discards the answer
+#'   or fails outright is worse than one that is not offered.
+#' @param min_score Relationships scoring below this are left out. The
+#'   default keeps everything.
+#'
+#' @return The path, invisibly.
+#'
+#' @examples
+#' \donttest{
+#' sim <- simulate_data(n = 100, blocks = list(a = 4))
+#' prep <- preprocess(sim, check_data(sim), plots = FALSE, quiet = TRUE)
+#' res <- analyze(prep, "y", methods = "association", effort = "fast",
+#'                plots = FALSE, quiet = TRUE)
+#'
+#' export_graph(res, file.path(tempdir(), "graph.graphml"))
+#' }
+#'
+#' @export
+
+export_graph <- function(object, file,
+                         format = c("graphml", "dot", "json"),
+                         min_score = 0) {
+
+  format <- match.arg(format)
+
+  if (!inherits(object, "CMOResult")) {
+    stop("'object' must be a CMOResult object.", call. = FALSE)
+  }
+
+  if (missing(file) || !is.character(file) || length(file) != 1) {
+    stop("'file' must be a single path to write to.", call. = FALSE)
+  }
+
+  edges <- object$graph$edges
+
+  if (!is.data.frame(edges) || nrow(edges) == 0) {
+    stop("This result has no relationships to export.", call. = FALSE)
+  }
+
+  edges <- edges[.report_or(edges$evidence_score, 0) >= min_score, ,
+                 drop = FALSE]
+
+  if (nrow(edges) == 0) {
+    stop(sprintf("No relationship scores %s or more.", format(min_score)),
+         call. = FALSE)
+  }
+
+  nodes <- object$graph$nodes
+  nodes <- nodes[nodes$name %in% c(edges$source, edges$target), , drop = FALSE]
+
+  if (identical(format, "json")) {
+
+    .export_graph_json(nodes, edges, object, file)
+
+    return(invisible(file))
+
+  }
+
+  if (!requireNamespace("igraph", quietly = TRUE)) {
+
+    stop(paste0("Writing ", format, " needs the 'igraph' package.\n",
+                "  install.packages(\"igraph\"), or use format = \"json\"."),
+         call. = FALSE)
+
+  }
+
+  # Rebuilt from the tables rather than reusing object$graph$igraph, because
+  # that one was built before any filtering and carries every edge.
+
+  carried <- edges[, c("source", "target",
+                       intersect(c("evidence_score", "strength", "confidence",
+                                   "consistency", "data_quality", "fdr",
+                                   "identification", "level_label",
+                                   "direction", "n_methods", "cross_block"),
+                                 names(edges)))]
+
+  # Logicals become 0 and 1 here rather than being converted by the writer,
+  # which does it anyway and warns about it once per attribute.
+
+  for (col in names(carried)) {
+    if (is.logical(carried[[col]])) carried[[col]] <- as.integer(carried[[col]])
+  }
+
+  g <- igraph::graph_from_data_frame(d = carried, vertices = nodes,
+                                     directed = TRUE)
+
+  igraph::write_graph(g, file = file, format = format)
+
+  invisible(file)
+
+}
+
+#' Write the graph as JSON, without needing igraph
+#'
+#' Hand-rolled rather than pulling in a JSON package for one function. The
+#' structure is nodes and links, which is what most JavaScript graph
+#' libraries expect to be handed.
+#'
+#' @param nodes,edges The filtered tables.
+#' @param object The result, for the provenance block.
+#' @param file Where to write.
+#'
+#' @return Nothing.
+#' @keywords internal
+#' @noRd
+.export_graph_json <- function(nodes, edges, object, file) {
+
+  quote_json <- function(x) {
+
+    if (is.na(x)) return("null")
+
+    if (is.numeric(x) || is.logical(x))
+      return(if (is.logical(x)) tolower(as.character(x)) else
+        format(x, scientific = FALSE, trim = TRUE))
+
+    paste0("\"", gsub("\"", "\\\\\"", gsub("\\\\", "\\\\\\\\", x)), "\"")
+
+  }
+
+  row_json <- function(row) {
+    paste0("{", paste(sprintf("\"%s\": %s", names(row),
+                              vapply(row, quote_json, character(1))),
+                      collapse = ", "), "}")
+  }
+
+  as_rows <- function(df) {
+    paste(vapply(seq_len(nrow(df)),
+                 function(i) row_json(as.list(df[i, , drop = FALSE])),
+                 character(1)),
+          collapse = ",\n    ")
+  }
+
+  writeLines(c(
+    "{",
+    sprintf("  \"outcome\": %s,", quote_json(.report_or(object$outcome$name,
+                                                        NA_character_))),
+    sprintf("  \"generated\": %s,",
+            quote_json(format(.report_or(object$timestamp, Sys.time())))),
+    sprintf("  \"package\": \"CausalMultiOmics %s\",",
+            as.character(utils::packageVersion("CausalMultiOmics"))),
+    "  \"nodes\": [",
+    paste0("    ", as_rows(nodes)),
+    "  ],",
+    "  \"links\": [",
+    paste0("    ", as_rows(edges)),
+    "  ]",
+    "}"
+  ), con = file)
+
+  invisible(NULL)
+
+}

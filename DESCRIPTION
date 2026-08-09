@@ -26,6 +26,7 @@ Suggests:
     dagitty,
     glmnet,
     igraph,
+    jsonlite,
     knitr,
     lavaan,
     lme4,

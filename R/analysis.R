@@ -1626,8 +1626,33 @@ observation <- function(source, target, quantity, estimate,
   names(frame) <- make.names(original, unique = TRUE)
   lookup <- stats::setNames(original, names(frame))
 
+  # Constraints, translated into the syntactic names bnlearn is working in.
+  # Structure learning searches a superexponential space, so ruling out arcs
+  # that are known to be impossible is worth more than any amount of extra
+  # computation: it removes them from the search rather than from the output.
+
+  constrain <- function(arcs) {
+
+    if (is.null(arcs) || nrow(arcs) == 0) return(NULL)
+
+    back <- stats::setNames(names(lookup), unname(lookup))
+
+    out <- data.frame(from = unname(back[as.character(arcs$from)]),
+                      to = unname(back[as.character(arcs$to)]),
+                      stringsAsFactors = FALSE)
+
+    out <- out[stats::complete.cases(out), , drop = FALSE]
+
+    if (nrow(out) == 0) NULL else out
+
+  }
+
+  forbidden <- constrain(context$params$forbidden)
+  required <- constrain(context$params$required)
+
   fit <- .with_preserved_seed(
-    .safe_try(bnlearn::hc(frame), NULL),
+    .safe_try(bnlearn::hc(frame, blacklist = forbidden, whitelist = required),
+              NULL),
     seed = context$params$seed
   )
 
@@ -1641,7 +1666,18 @@ observation <- function(source, target, quantity, estimate,
     "Structure learned from observational data: the DAG is identified only up to its Markov equivalence class.",
     "Arc directions within an equivalence class are not empirically distinguishable.",
     "Causal sufficiency: no unmeasured common cause of any two nodes.",
-    "Linear Gaussian dependence."
+    "Linear Gaussian dependence.",
+
+    # A constraint is a structural claim, exactly like a DAG, and it shaped
+    # the graph that came out. Applying it silently would let the user's own
+    # belief reappear as a finding.
+    if (!is.null(forbidden)) sprintf(
+      "%d relationship(s) were excluded from the search by the caller and could not have been found.",
+      nrow(forbidden)) else NULL,
+
+    if (!is.null(required)) sprintf(
+      "%d relationship(s) were required by the caller and are present whatever the data said.",
+      nrow(required)) else NULL
   )
 
   lapply(seq_len(nrow(fit$arcs)), function(i) {
@@ -2749,6 +2785,17 @@ observation <- function(source, target, quantity, estimate,
 #'   adjustment actually identifies each effect, rather than only recording
 #'   that something was adjusted for. It never changes an estimate; it changes
 #'   what may be claimed about one. See \code{\link{check_dag}}.
+#' @param forbidden Optional data.frame of \code{from}/\code{to} pairs that
+#'   structure learning may not propose. Ruling out relationships that cannot
+#'   exist removes them from a superexponential search rather than from its
+#'   output, which is worth more than any amount of extra computation. Only
+#'   the Bayesian network generator can use it.
+#' @param required Optional data.frame of \code{from}/\code{to} pairs that
+#'   structure learning must include.
+#'
+#'   Both are claims about the world in the same way a DAG is, so both are
+#'   recorded as assumptions on every edge they shaped: a constraint applied
+#'   silently would let the caller's own belief reappear as a finding.
 #' @param modifiable Optional variables or blocks the user could plausibly
 #'   act on. When supplied, the report expresses the leading relationships as
 #'   contrasts in the original measurement units. Nothing is included by
@@ -2796,6 +2843,8 @@ analyze <- function(object,
                     negative_controls = NULL,
                     modifiable = NULL,
                     dag = NULL,
+                    forbidden = NULL,
+                    required = NULL,
                     max_features = 150,
                     min_per_block = 10,
                     bootstrap = 200,
@@ -2993,6 +3042,8 @@ analyze <- function(object,
     max_path_length = 4,
     max_paths = 50,
     top_n = 10,
+    forbidden = .constraint_frame(forbidden, "forbidden"),
+    required = .constraint_frame(required, "required"),
     mediation_candidates = top_features,
     sem_candidates = utils::head(top_features, 8)
   )
@@ -5831,6 +5882,38 @@ test_hypothesis <- function(hypothesis, object) {
 #
 # Nothing here changes an estimate. It changes what may be claimed about one.
 # =============================================================================
+
+#' Check a structure-learning constraint and normalise it
+#'
+#' @param arcs A data.frame of from/to pairs, or NULL.
+#' @param label Which argument it is, for the message.
+#'
+#' @return A two-column data.frame, or NULL.
+#' @keywords internal
+#' @noRd
+.constraint_frame <- function(arcs, label) {
+
+  if (is.null(arcs)) return(NULL)
+
+  if (!is.data.frame(arcs) || !all(c("from", "to") %in% names(arcs))) {
+    stop(sprintf("'%s' must be a data.frame with 'from' and 'to' columns.",
+                 label), call. = FALSE)
+  }
+
+  if (nrow(arcs) == 0) return(NULL)
+
+  out <- data.frame(from = as.character(arcs$from),
+                    to = as.character(arcs$to),
+                    stringsAsFactors = FALSE)
+
+  if (any(out$from == out$to)) {
+    stop(sprintf("'%s' contains a relationship from a variable to itself.",
+                 label), call. = FALSE)
+  }
+
+  out
+
+}
 
 #' Refuse a causal structure that parsed into nothing
 #'
