@@ -28,6 +28,53 @@
 * Refuses a cycle rather than looping over it: generating a variable needs
   its parents to exist first, and a cycle has no such order.
 
+## How much of this is the analyst?
+
+* `sensitivity()` refits one relationship under every defensible
+  preprocessing choice and reports the spread. The E-value asks how much
+  unmeasured confounding it would take to erase a finding; this asks the
+  question next to it and rather more embarrassing. A conclusion that
+  survives every reasonable decision is a different object from one that
+  needed this one.
+* The package can answer it where most cannot, because recipes are objects
+  and pipelines replay: the variants are cheap to build and cheap to run.
+* Estimates are reported per standard deviation of the exposure. A rank
+  transformation puts a variable on a 1 to n scale and a log compresses it,
+  so the raw coefficients down different paths are in different units —
+  putting them in one column reported a 275-fold spread for a relationship
+  that never moved, which is the very comparison the quantity families exist
+  to prevent.
+* Scaling is not varied, because it cannot change a per-standard-deviation
+  estimate. Including it filled the table with exact duplicates, and a
+  robustness check that counts the same answer twice reports a finding as
+  steadier than it is.
+* Sample filters are held fixed. Changing them changes who is in the study,
+  and an estimate on a different population answers a different question.
+* Stability here is not evidence that a relationship is real. A chance
+  correlation is not created or destroyed by how the data was transformed,
+  only re-expressed, so noise passes this check comfortably. It measures
+  dependence on the analyst, and the object says so.
+
+## Two analyses, side by side
+
+* `compare_results()` answers the four questions a reader has when handed two
+  results: which relationships appear in both, which reverse, which vanish,
+  and which survive at a size that no longer means the same thing.
+* Comparability is checked first and reported before the comparison. Two
+  graphs can be compared only if the analyses estimated the same quantity on
+  the same kind of outcome with the same adjustment; sixty per cent overlap
+  between two different questions is a number about nothing.
+* Size is reported as a ratio, because a relationship holding in both cohorts
+  at a fifth of the size is the usual way a replication is oversold — both
+  significant, both the same direction, and a comparison based on presence
+  alone calls it agreement.
+* A relationship missing from one of two analyses has not been refuted by it.
+  It may simply not have cleared the threshold there, and the two lists are
+  not a test of each other.
+* Nothing is pooled. There is no `meta_analyze()` and there will not be:
+  pooling needs everything comparability needs and more, and a function that
+  pooled regardless would be the most dangerous thing in the package.
+
 ## Taking the graph elsewhere
 
 * `export_graph()` writes the evidence graph as GraphML (Cytoscape, Gephi),
