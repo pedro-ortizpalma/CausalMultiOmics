@@ -4,7 +4,17 @@
 \alias{.integrate_evidence}
 \title{Merge the edges describing the same relationship and score them}
 \usage{
-.integrate_evidence(edges, params)
+.integrate_evidence(edges, params, contributions = TRUE)
+}
+\arguments{
+\item{edges}{Edges emitted by the generators.}
+
+\item{params}{Tuning parameters.}
+
+\item{contributions}{Build the per-method table on each edge. Resampling
+integrates a whole graph per replicate and then reads four fields of
+each edge, so building that table five thousand times and discarding it
+was most of what resampling cost.}
 }
 \description{
 Three scores come out, and they measure different things on purpose:

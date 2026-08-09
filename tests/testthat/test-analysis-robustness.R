@@ -185,3 +185,66 @@ test_that("a real p-value still survives integration", {
   expect_equal(merged[[1]]$p_value, 0.01)
 
 })
+
+# =============================================================================
+# The work that is skipped is work nobody reads
+# =============================================================================
+
+test_that("resampling skips the per-method table, and reporting keeps it", {
+
+  # Resampling integrates a whole graph per replicate and then reads four
+  # fields of each edge. Building the contributions table five thousand times
+  # and discarding it was most of what resampling cost, so it is skipped
+  # there. If it were skipped anywhere the reader looks, every finding in the
+  # report would lose the numbers behind it.
+
+  sim <- simulate_data(
+    n = 300, blocks = list(a = 8),
+    dag = data.frame(from = "a_01", to = "y", effect = 0.7),
+    outcome = "y", seed = 3)
+
+  prep <- preprocess(sim, check_data(sim), plots = FALSE, quiet = TRUE)
+
+  res <- analyze(prep, "y", methods = c("association", "conditional"),
+                 effort = "standard", plots = FALSE, quiet = TRUE)
+
+  # Every reported edge keeps its own evidence.
+  for (e in res$evidence) {
+    expect_s3_class(e$contributions, "data.frame")
+    expect_gt(nrow(e$contributions), 0)
+  }
+
+  # And resampling still produced everything it is there for.
+  expect_true(all(vapply(res$evidence,
+                         function(e) is.finite(e$bootstrap_stability),
+                         logical(1))))
+
+  expect_gt(res$consensus$replicates, 0)
+  expect_gt(nrow(res$consensus$edges), 0)
+
+})
+
+test_that("skipping it changes nothing about the answer", {
+
+  edges <- list(
+    .new_edge("x", "y", 0.8, "association", "linear regression",
+              quantity = "beta", se = 0.1, p_value = 1e-6, n = 100L),
+    .new_edge("x", "y", 0.7, "conditional", "partial correlation",
+              quantity = "partial_correlation", se = 0.1, p_value = 1e-5,
+              n = 100L)
+  )
+
+  params <- list(min_evidence_score = 0, seed = 1)
+
+  with_table <- .integrate_evidence(edges, params, contributions = TRUE)[[1]]
+  without <- .integrate_evidence(edges, params, contributions = FALSE)[[1]]
+
+  for (field in c("estimate", "evidence_score", "strength", "confidence",
+                  "consistency", "level", "identification", "e_value")) {
+    expect_equal(with_table[[field]], without[[field]], info = field)
+  }
+
+  expect_gt(nrow(with_table$contributions), 0)
+  expect_equal(nrow(without$contributions), 0)
+
+})

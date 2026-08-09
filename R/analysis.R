@@ -1823,9 +1823,16 @@ observation <- function(source, target, quantity, estimate,
 #' more. The identification strategy is tracked separately and reported
 #' beside the score.
 #'
+#' @param edges Edges emitted by the generators.
+#' @param params Tuning parameters.
+#' @param contributions Build the per-method table on each edge. Resampling
+#'   integrates a whole graph per replicate and then reads four fields of
+#'   each edge, so building that table five thousand times and discarding it
+#'   was most of what resampling cost.
+#'
 #' @keywords internal
 
-.integrate_evidence <- function(edges, params) {
+.integrate_evidence <- function(edges, params, contributions = TRUE) {
 
   if (length(edges) == 0) return(list())
 
@@ -2055,8 +2062,14 @@ observation <- function(source, target, quantity, estimate,
     # Keep what each method said on its own. The merged estimate is a median
     # across methods measured on different scales, which is useful as a
     # summary and impossible to check without the parts it came from.
+    #
+    # Skipped when the caller says it will not read it. Resampling integrates
+    # a graph per replicate and looks at four fields of each edge; building
+    # one data.frame per contributing method per edge, five thousand times,
+    # to throw all of them away was most of what resampling cost.
 
-    integrated$contributions <- do.call(rbind, lapply(seq_along(group), function(i) {
+    integrated$contributions <- if (!contributions) data.frame() else
+      do.call(rbind, lapply(seq_along(group), function(i) {
 
       e <- group[[i]]
 
@@ -2089,7 +2102,9 @@ observation <- function(source, target, quantity, estimate,
 
     }))
 
-    rownames(integrated$contributions) <- NULL
+    if (nrow(integrated$contributions) > 0) {
+      rownames(integrated$contributions) <- NULL
+    }
 
     integrated$strength <- strength
     integrated$confidence <- confidence
@@ -6883,7 +6898,8 @@ test_hypothesis <- function(hypothesis, object) {
     # the same integration and threshold as the real run.
 
     integrated <- .safe_try(
-      .integrate_evidence(replicate_edges, context$params), list()
+      .integrate_evidence(replicate_edges, context$params,
+                          contributions = FALSE), list()
     )
 
     # The replicate's own ranking, which is what a reader would have been
@@ -7176,7 +7192,9 @@ test_hypothesis <- function(hypothesis, object) {
 
     }
 
-    integrated <- .safe_try(.integrate_evidence(edges, context$params), list())
+    integrated <- .safe_try(
+      .integrate_evidence(edges, context$params, contributions = FALSE),
+      list())
 
     reaching <- Filter(function(e) identical(e$target, outcome_name), integrated)
 
