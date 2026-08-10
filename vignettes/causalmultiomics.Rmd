@@ -110,8 +110,8 @@ results <- analyze(
   clean,
   outcome = "disease",
   covariates = "age",
-  methods = c("association", "conditional"),
   effort = "standard",
+  control = analysis_control(methods = c("association", "conditional")),
   plots = FALSE,
   quiet = TRUE
 )
@@ -255,6 +255,76 @@ Replication is judged on direction and size, not on a p-value. The usual way
 one is oversold is a direction that holds with an effect a fifth as large,
 which a significance test calls a success; that case is reported as
 `"same direction, much smaller"`.
+
+## Two kinds of argument
+
+`analyze()` takes its many options in two groups, because they are two kinds
+of decision.
+
+`analysis_assumptions()` holds what you are claiming: the causal diagram,
+which variables are modifiable, the reliability of an assay, which events
+compete with the outcome. None of it can be derived from the data, all of it
+changes what may be concluded, and getting one wrong makes the answer wrong.
+
+`analysis_control()` holds how much work to do: which generators, how many
+resamples, how many features. Getting one wrong makes the answer slower or
+noisier, never wrong.
+
+```{r groups, eval = FALSE}
+analyze(
+  clean,
+  outcome = "disease",
+  covariates = "age",
+  assume = analysis_assumptions(
+    dag = structure,
+    reliability = c(inflammation = 0.85),
+    modifiable = "clinical"
+  ),
+  control = analysis_control(
+    methods = c("association", "survival"),
+    max_features = 200
+  )
+)
+```
+
+Two of those deserve a word.
+
+`reliability` corrects for the attenuation that measurement error causes: a
+noisy exposure pulls its own coefficient toward zero by exactly its
+reliability. The correction is reported beside the measured estimate and
+never in place of it, and it widens the interval rather than narrowing it —
+an attenuation correction that left the interval alone would turn a noisy
+measurement into a stronger claim.
+
+`positivity`, on by default, checks the identification condition nobody
+mentions. Reading an adjusted estimate causally needs two things: no
+unmeasured confounding, and variation in the exposure at every combination of
+the adjustment set. Where the second fails the model does not complain, it
+extrapolates.
+
+```{r positivity}
+checked <- Filter(function(e) !is.na(e$positivity), results$evidence)
+
+for (e in head(checked, 3)) {
+  cat(sprintf("%-14s positivity %-5s (%.0f%% of it free to vary)\n",
+              e$source, e$positivity, 100 * e$residual_variation))
+}
+```
+
+Only relationships with the outcome are checked, since only those have an
+adjustment set to be trapped by.
+
+## Several outcomes at once
+
+Studies rarely have one endpoint. Naming several runs each analysis on its
+own terms and then corrects multiplicity across all of them together — which
+running `analyze()` twice by hand does not, because a relationship that was
+one of fifty tests is not one of a hundred, and correcting within each
+outcome separately pretends the other analysis was never run.
+
+```{r multi, eval = FALSE}
+analyze(clean, outcome = c("disease", "biomarker"), effort = "fast")
+```
 
 ## Where to go next
 

@@ -75,8 +75,8 @@
 #'                      dag = data.frame(from = "x", to = "y", effect = 0.8),
 #'                      outcome = "y", missing = 0.1)
 #' prep <- preprocess(sim, check_data(sim), plots = FALSE, quiet = TRUE)
-#' res <- analyze(prep, "y", methods = "association", effort = "fast",
-#'                plots = FALSE, quiet = TRUE)
+#' res <- analyze(prep, "y", effort = "fast", plots = FALSE, quiet = TRUE,
+#'                control = analysis_control(methods = "association"))
 #'
 #' sensitivity(res, "x")
 #' }

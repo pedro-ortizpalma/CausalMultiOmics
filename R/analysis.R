@@ -1144,12 +1144,23 @@ observation <- function(source, target, quantity, estimate,
   identification <- if (is.null(covariates)) "temporal" else "temporal"
   adjustment_set <- if (is.null(covariates)) character() else names(covariates)
 
+  # A Cox model treats everything that is not the event as censoring, and
+  # censoring means "still at risk, we just stopped looking". For someone who
+  # died of another cause that is false, and in a mortality study it is not a
+  # small falsehood. What comes out is a cause-specific hazard, which is a
+  # real quantity and not the one most readers think they are being shown.
+
+  competing <- .report_or(context$competing, NULL)
+
+  n_competing <- if (is.null(competing)) 0L else sum(competing == 1, na.rm = TRUE)
+
   assumptions <- c(
     .identification_assumptions("temporal"),
     if (length(adjustment_set) > 0)
       sprintf("Additionally conditioned on: %s.",
               paste(adjustment_set, collapse = ", ")) else character(),
-    "Proportional hazards over follow-up."
+    "Proportional hazards over follow-up.",
+    .competing_risk_assumptions(competing, n_competing, length(status))
   )
 
   edges <- list()
@@ -2761,7 +2772,9 @@ observation <- function(source, target, quantity, estimate,
 #' @param object A \code{PreprocessingResult}, as returned by
 #'   \code{preprocess()}. Preprocessing decisions are already fixed, which is
 #'   why analysis starts here rather than from a \code{MultiOmicsData}.
-#' @param outcome Name of the outcome column in the metadata.
+#' @param outcome Name of the outcome column in the metadata. Several may be
+#'   named, in which case each is analysed and multiplicity is corrected
+#'   across all of them together rather than within each.
 #' @param time Optional name of a time or follow-up column. Combined with a
 #'   binary outcome this makes the design a survival one.
 #' @param subject Optional name of a subject identifier column. Repeated
@@ -2769,74 +2782,34 @@ observation <- function(source, target, quantity, estimate,
 #' @param covariates Optional character vector of metadata columns to adjust
 #'   for. These form the declared adjustment set.
 #' @param blocks Blocks to analyse, or \code{"all"}.
-#' @param goal Either \code{"causal"} (default) or \code{"predictive"}. The
-#'   goal selects which generators run.
-#' @param methods Optional character vector naming the generators to run,
-#'   overriding \code{goal}.
 #' @param effort How much computation to spend. \code{"fast"} runs the
 #'   generators once and nothing else; \code{"standard"} adds model
 #'   diagnostics and 50 resamples; \code{"thorough"} adds null calibration;
-#'   \code{"exhaustive"} resamples every generator 500 times. Each component
-#'   can be overridden individually by the arguments below, which take
-#'   precedence.
-#' @param resample Number of resamples used to test whether a relationship
-#'   survives a different sample. \code{0} switches it off. Cost is linear in
-#'   this number.
-#' @param resample_scheme Either \code{"bootstrap"} or \code{"cv"}.
-#' @param resample_methods Which generators to re-run on each resample. The
-#'   cheap ones by default, because structure learning and SEM are what make
-#'   resampling expensive.
-#' @param permutations Number of outcome permutations used to measure how many
-#'   relationships the engine finds when there is nothing to find. \code{0}
-#'   switches it off.
-#' @param diagnostics Whether to compute fit quality and assumption checks for
-#'   the models behind the leading relationships.
-#' @param heterogeneity Optional metadata columns to test as effect modifiers.
-#' @param negative_controls Optional feature names that should not appear in
-#'   the graph. If they do, the run is flagged.
-#' @param dag Optional causal structure, as a \code{dagitty} object, a
-#'   dagitty specification string, or a data.frame with \code{from} and
-#'   \code{to} columns. Supplying one lets the engine check whether the
-#'   adjustment actually identifies each effect, rather than only recording
-#'   that something was adjusted for. It never changes an estimate; it changes
-#'   what may be claimed about one. See \code{\link{check_dag}}.
-#' @param forbidden Optional data.frame of \code{from}/\code{to} pairs that
-#'   structure learning may not propose. Ruling out relationships that cannot
-#'   exist removes them from a superexponential search rather than from its
-#'   output, which is worth more than any amount of extra computation. Only
-#'   the Bayesian network generator can use it.
-#' @param required Optional data.frame of \code{from}/\code{to} pairs that
-#'   structure learning must include.
-#'
-#'   Both are claims about the world in the same way a DAG is, so both are
-#'   recorded as assumptions on every edge they shaped: a constraint applied
-#'   silently would let the caller's own belief reappear as a finding.
-#' @param modifiable Optional variables or blocks the user could plausibly
-#'   act on. When supplied, the report expresses the leading relationships as
-#'   contrasts in the original measurement units. Nothing is included by
-#'   default: a contrast for a genotype is arithmetic without meaning. See
-#'   \code{\link{counterfactual}}.
-#' @param max_features Cap on the number of features carried into the
-#'   pairwise stage. Features are screened against the outcome first, and the
-#'   budget is shared out between blocks rather than given to whichever block
-#'   has the most columns.
-#' @param min_per_block Floor on how many features each block keeps through
-#'   screening, or the whole block when it is smaller. Without it a block of
-#'   twenty thousand transcripts takes every slot and a five-variable
-#'   clinical block disappears from the analysis. Every block keeps at least
-#'   one feature even when that pushes the total past \code{max_features}:
-#'   losing a block entirely is worse than exceeding a target set for speed.
-#' @param bootstrap Bootstrap resamples used for mediation.
-#' @param min_evidence_score Relationships scoring below this are not
-#'   reported.
+#'   \code{"exhaustive"} resamples every generator 500 times. Anything set
+#'   explicitly in \code{control} wins over the preset.
+#' @param assume What you are claiming, built with
+#'   \code{\link{analysis_assumptions}}: the causal diagram, which variables
+#'   are modifiable, measurement reliability, competing events. Every one is a
+#'   statement the data cannot check, and every one changes what may be
+#'   concluded.
+#' @param control How much work to do, built with
+#'   \code{\link{analysis_control}}: which generators, how many resamples, how
+#'   many features. Nothing here changes what may be concluded.
 #' @param plots Whether to render diagnostic plots.
-#' @param seed Seed used for every random procedure. The caller's random
-#'   number generator is restored afterwards.
 #' @param quiet Whether to suppress progress messages.
 #'
-#' @return A \code{CMOResult} object.
+#' @section The seed:
 #'
-#' @seealso \code{\link{preprocess}}, \code{\link{annotate_evidence}}
+#' Every random procedure runs under \code{control$seed}, and the caller's
+#' random number generator is restored afterwards. An analysis is a read-only
+#' act: one that moved your generator would silently change every simulation
+#' you ran next.
+#'
+#' @return A \code{CMOResult} object, or a \code{CMOMultiResult} when several
+#'   outcomes were named.
+#'
+#' @seealso \code{\link{analysis_assumptions}}, \code{\link{analysis_control}},
+#'   \code{\link{preprocess}}
 #'
 #' @export
 
@@ -2846,33 +2819,57 @@ analyze <- function(object,
                     subject = NULL,
                     covariates = NULL,
                     blocks = "all",
-                    goal = c("causal", "predictive"),
-                    methods = NULL,
                     effort = c("standard", "fast", "thorough", "exhaustive"),
-                    resample = NULL,
-                    resample_scheme = c("bootstrap", "cv"),
-                    resample_methods = NULL,
-                    permutations = NULL,
-                    diagnostics = NULL,
-                    heterogeneity = NULL,
-                    negative_controls = NULL,
-                    modifiable = NULL,
-                    dag = NULL,
-                    forbidden = NULL,
-                    required = NULL,
-                    max_features = 150,
-                    min_per_block = 10,
-                    bootstrap = 200,
-                    min_evidence_score = 1,
+                    assume = NULL,
+                    control = NULL,
                     plots = TRUE,
-                    seed = 1L,
                     quiet = FALSE) {
 
   started <- Sys.time()
 
-  goal <- match.arg(goal)
   effort <- match.arg(effort)
-  resample_scheme <- match.arg(resample_scheme)
+
+  # Several outcomes are handled by running each and then correcting
+  # multiplicity across all of them at once. Running the function twice by
+  # hand gives the same estimates and the wrong FDR: a relationship that is
+  # one of fifty tests is not one of a hundred, and correcting within each
+  # outcome separately pretends the second analysis was never done.
+
+  if (length(outcome) > 1) {
+
+    return(.analyze_several(object, outcome, time, subject, covariates,
+                            blocks, effort, assume, control, plots, quiet))
+
+  }
+
+  # The two groups, kept apart because they are two kinds of decision:
+  # `assume` is where the caller is accountable and `control` is where they
+  # are impatient. Unpacked here so the body below reads as it always did.
+
+  assume <- .as_group(assume, analysis_assumptions, "analysis_assumptions")
+  control <- .as_group(control, analysis_control, "analysis_control")
+
+  goal <- control$goal
+  methods <- control$methods
+  resample <- control$resample
+  resample_scheme <- control$resample_scheme
+  resample_methods <- control$resample_methods
+  permutations <- control$permutations
+  diagnostics <- control$diagnostics
+  bootstrap <- control$bootstrap
+  max_features <- control$max_features
+  min_per_block <- control$min_per_block
+  min_evidence_score <- control$min_evidence_score
+  seed <- control$seed
+
+  dag <- assume$dag
+  modifiable <- assume$modifiable
+  negative_controls <- assume$negative_controls
+  heterogeneity <- assume$heterogeneity
+  forbidden <- assume$forbidden
+  required <- assume$required
+  reliability <- assume$reliability
+  competing <- assume$competing
 
   # The expensive parts are opt-in through a single dial, with every piece
   # separately overridable. Resampling and permutation are the only things
@@ -3073,6 +3070,15 @@ analyze <- function(object,
     feature_block = aligned$feature_block,
     encoding = aligned$encoding,
     metadata = metadata,
+
+    # Aligned to the analysis rows here rather than looked up per generator,
+    # so a survival model and the assumption text it carries cannot disagree
+    # about who had a competing event.
+    competing = if (is.null(competing) ||
+                    !(competing %in% colnames(metadata))) NULL else
+                      metadata[[competing]][match(aligned$samples,
+                                                  metadata$sample_id)],
+
     params = params
   )
 
@@ -3258,6 +3264,42 @@ analyze <- function(object,
   # ---------------------------------------------------------------------------
   # Check the adjustment against the stated structure, if one was given
   # ---------------------------------------------------------------------------
+
+  # ---------------------------------------------------------------------------
+  # Is the effect estimable at all, and what did the instrument do to it?
+  # ---------------------------------------------------------------------------
+
+  evidence <- .safe_try(
+    .audit_estimability(evidence, x, covariate_frame, outcome_spec$name,
+                        assume),
+    evidence)
+
+  extrapolating <- sum(vapply(evidence,
+                              function(e) isFALSE(e$positivity), logical(1)))
+
+  if (extrapolating > 0) {
+
+    logs <- c(logs, sprintf(
+      "Positivity: %d relationship(s) have too little independent variation left after adjustment to be estimated rather than extrapolated.",
+      extrapolating))
+
+    if (!isTRUE(quiet)) {
+      cat(sprintf("  Positivity: %d relationship(s) are partly extrapolation.\n",
+                  extrapolating))
+    }
+
+  }
+
+  corrected <- sum(vapply(evidence, function(e)
+    is.finite(e$corrected_estimate), logical(1)))
+
+  if (corrected > 0) {
+
+    logs <- c(logs, sprintf(
+      "Measurement error: %d relationship(s) carry an attenuation-corrected estimate alongside the measured one.",
+      corrected))
+
+  }
 
   causal_structure <- .parse_dag(dag)
 
@@ -5040,8 +5082,8 @@ annotate_evidence <- function(result, annotations, weight = 0.1) {
 #'   metadata = data.frame(sample_id = ids, y = rnorm(60))
 #' )
 #' prep <- preprocess(obj, check_data(obj), plots = FALSE, quiet = TRUE)
-#' res <- analyze(prep, "y", methods = "association", effort = "fast",
-#'                plots = FALSE, quiet = TRUE)
+#' res <- analyze(prep, "y", effort = "fast", plots = FALSE, quiet = TRUE,
+#'                control = analysis_control(methods = "association"))
 #'
 #' hypothesis(res)
 #' }
@@ -9640,3 +9682,205 @@ print.CMODagCheck <- function(x, ...) {
 # =============================================================================
 # End of analysis.R
 # =============================================================================
+
+# =============================================================================
+# Several outcomes at once
+# =============================================================================
+
+#' Analyse each outcome and correct multiplicity across all of them
+#'
+#' Studies rarely have one endpoint. Running \code{analyze()} once per
+#' outcome gives the right estimates and the wrong error rate: a relationship
+#' that was one of fifty tests is not one of a hundred, and correcting within
+#' each outcome separately pretends the other analyses were never run.
+#'
+#' So each outcome is analysed on its own terms and the p-values are pooled
+#' for one correction across the lot. Nothing else is shared: the outcomes
+#' are not modelled jointly, and a relationship found for one says nothing
+#' about the others.
+#'
+#' @param object,time,subject,covariates,blocks,effort,assume,control,plots,quiet
+#'   As for \code{\link{analyze}}.
+#' @param outcome Two or more outcome names.
+#'
+#' @return A \code{CMOMultiResult}.
+#' @keywords internal
+#' @noRd
+.analyze_several <- function(object, outcome, time, subject, covariates,
+                             blocks, effort, assume, control, plots, quiet) {
+
+  results <- list()
+
+  for (nm in outcome) {
+
+    if (!isTRUE(quiet)) {
+      cat("\n"); cat(strrep("-", 60), "\n", sep = "")
+      cat("Outcome: ", nm, "\n", sep = "")
+      cat(strrep("-", 60), "\n", sep = "")
+    }
+
+    results[[nm]] <- .safe_try(
+      analyze(object, nm, time = time, subject = subject,
+              covariates = covariates, blocks = blocks, effort = effort,
+              assume = assume, control = control, plots = plots,
+              quiet = quiet),
+      NULL)
+
+  }
+
+  results <- Filter(Negate(is.null), results)
+
+  if (length(results) == 0) {
+    stop("No outcome could be analysed.", call. = FALSE)
+  }
+
+  .pool_multiplicity(results, quiet)
+
+}
+
+#' One correction over every test in every outcome
+#'
+#' @param results Named list of \code{CMOResult}s.
+#' @param quiet Suppress the summary line.
+#'
+#' @return A \code{CMOMultiResult}.
+#' @keywords internal
+#' @noRd
+.pool_multiplicity <- function(results, quiet = FALSE) {
+
+  rows <- do.call(rbind, lapply(names(results), function(nm) {
+
+    r <- results[[nm]]
+
+    if (length(r$evidence) == 0) return(NULL)
+
+    data.frame(
+      outcome = nm,
+      source = vapply(r$evidence, function(e) e$source, character(1)),
+      target = vapply(r$evidence, function(e) e$target, character(1)),
+      p_value = vapply(r$evidence, function(e)
+        .report_or(e$p_value, NA_real_), numeric(1)),
+      stringsAsFactors = FALSE
+    )
+
+  }))
+
+  if (!is.null(rows) && nrow(rows) > 0) {
+
+    # Both figures are computed here, from the same p-values, so they can be
+    # put beside each other. The `fdr` already on an edge came from adjusting
+    # within one generator's own set of tests, which is a third family again
+    # and not comparable to either of these.
+
+    rows$fdr_within <- unsplit(
+      lapply(split(rows$p_value, rows$outcome), stats::p.adjust,
+             method = "BH"),
+      rows$outcome)
+
+    rows$fdr_across <- stats::p.adjust(rows$p_value, method = "BH")
+
+    # Written back, because an edge that carries only the within-outcome
+    # figure would be read as the error rate for the study rather than for
+    # one of its analyses.
+
+    for (nm in names(results)) {
+
+      here <- rows[rows$outcome == nm, , drop = FALSE]
+
+      results[[nm]]$evidence <- lapply(results[[nm]]$evidence, function(e) {
+
+        hit <- which(here$source == e$source & here$target == e$target)
+
+        if (length(hit) == 1) {
+          e$fdr_across_outcomes <- here$fdr_across[hit[1]]
+        }
+
+        e
+
+      })
+
+    }
+
+    lost <- sum(rows$fdr_within < 0.05 & rows$fdr_across >= 0.05, na.rm = TRUE)
+
+  } else {
+
+    lost <- 0L
+
+  }
+
+  if (!isTRUE(quiet) && lost > 0) {
+    cat(sprintf("\n  %d relationship(s) survive correction within their own outcome but not across all %d.\n",
+                lost, length(results)))
+  }
+
+  structure(
+    list(
+      results = results,
+      outcomes = names(results),
+      tests = rows,
+      lost_to_multiplicity = lost,
+      notes = c(
+        sprintf("%d outcome(s) analysed, %d test(s) corrected together.",
+                length(results),
+                if (is.null(rows)) 0L else nrow(rows)),
+        paste("Each outcome was analysed on its own terms. They are not",
+              "modelled jointly, so a relationship found for one says nothing",
+              "about the others."),
+        paste("Every edge carries both figures: fdr for its own analysis and",
+              "fdr_across_outcomes for the study. The second is the one that",
+              "describes what you actually did.")
+      )
+    ),
+    class = "CMOMultiResult"
+  )
+
+}
+
+#' Print an analysis of several outcomes
+#'
+#' @param x A \code{CMOMultiResult}.
+#' @param ... Ignored.
+#'
+#' @return The object, invisibly.
+#'
+#' @export
+print.CMOMultiResult <- function(x, ...) {
+
+  cat("\nCMOMultiResult\n")
+  cat("==============\n\n")
+
+  cat(sprintf("%-28s %s\n", "Outcomes:", paste(x$outcomes, collapse = ", ")))
+  cat(sprintf("%-28s %d\n", "Tests corrected together:",
+              if (is.null(x$tests)) 0L else nrow(x$tests)))
+  cat(sprintf("%-28s %d\n", "Lost to multiplicity:", x$lost_to_multiplicity))
+
+  cat("\nPer outcome\n")
+  cat(strrep("-", 60), "\n", sep = "")
+
+  for (nm in x$outcomes) {
+
+    r <- x$results[[nm]]
+
+    kept <- if (is.null(x$tests)) 0L else
+      sum(x$tests$outcome == nm & x$tests$fdr_across < 0.05, na.rm = TRUE)
+
+    cat(sprintf("  %-18s %3d relationship(s), %d surviving correction across the study\n",
+                nm, length(r$evidence), kept))
+
+  }
+
+  cat("\nHow to read this\n")
+  cat(strrep("-", 60), "\n", sep = "")
+
+  for (n in x$notes) {
+    cat(paste(strwrap(n, width = 60, prefix = "  "), collapse = "\n"),
+        "\n", sep = "")
+  }
+
+  cat("\n  Each result is a full CMOResult: x$results[[\"", x$outcomes[1],
+      "\"]]\n\n", sep = "")
+
+  invisible(x)
+
+}

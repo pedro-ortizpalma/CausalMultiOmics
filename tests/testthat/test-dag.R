@@ -156,9 +156,8 @@ test_that("check_dag() validates its input and prints", {
 
 test_that("without a DAG nothing is claimed either way", {
 
-  res <- analyze(cmo_dag_data(), "disease", covariates = "age",
-                 methods = "association", effort = "fast",
-                 plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_dag_data(), "disease", covariates = "age", effort = "fast", 
+    plots = FALSE, quiet = TRUE, control = analysis_control(methods = "association"))
 
   for (e in res$evidence) {
     expect_true(is.na(e$identifiable))
@@ -169,9 +168,9 @@ test_that("without a DAG nothing is claimed either way", {
 
 test_that("a correct adjustment is marked identifiable", {
 
-  res <- analyze(cmo_dag_data(), "disease", covariates = "age",
-                 dag = cmo_structure(), methods = "association",
-                 effort = "fast", plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_dag_data(), "disease", covariates = "age", effort = "fast", 
+    plots = FALSE, quiet = TRUE, assume = analysis_assumptions(dag = cmo_structure()), 
+    control = analysis_control(methods = "association"))
 
   protein <- Filter(function(e) identical(e$source, "protein"), res$evidence)
 
@@ -190,10 +189,9 @@ test_that("a harmful adjustment downgrades the edge rather than flattering it", 
   # Letting it keep the "adjustment" label would present the more misleading
   # number as the more careful one.
 
-  res <- analyze(cmo_dag_data(), "disease",
-                 covariates = c("age", "inflammation"),
-                 dag = cmo_structure(), methods = "association",
-                 effort = "fast", plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_dag_data(), "disease", covariates = c("age", "inflammation"), 
+    effort = "fast", plots = FALSE, quiet = TRUE, assume = analysis_assumptions(dag = cmo_structure()), 
+    control = analysis_control(methods = "association"))
 
   protein <- Filter(function(e) identical(e$source, "protein"), res$evidence)
 
@@ -216,9 +214,9 @@ test_that("an adjustment that does not do the job loses the label", {
   # adjustment. Leaving the "adjustment" badge on it would tell the reader the
   # opposite of what the audit found.
 
-  res <- analyze(cmo_dag_data(), "disease", covariates = "age",
-                 dag = cmo_structure(), methods = "association",
-                 effort = "fast", plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_dag_data(), "disease", covariates = "age", effort = "fast", 
+    plots = FALSE, quiet = TRUE, assume = analysis_assumptions(dag = cmo_structure()), 
+    control = analysis_control(methods = "association"))
 
   bio <- Filter(function(e) identical(e$source, "biomarker"), res$evidence)
 
@@ -234,9 +232,9 @@ test_that("an adjustment that does not do the job loses the label", {
 
 test_that("the audit is summarised in the run log", {
 
-  res <- analyze(cmo_dag_data(), "disease", covariates = "age",
-                 dag = cmo_structure(), methods = "association",
-                 effort = "fast", plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_dag_data(), "disease", covariates = "age", effort = "fast", 
+    plots = FALSE, quiet = TRUE, assume = analysis_assumptions(dag = cmo_structure()), 
+    control = analysis_control(methods = "association"))
 
   expect_true(any(grepl("DAG audit", res$logs)))
 
@@ -250,13 +248,12 @@ test_that("the DAG changes no estimate, only what may be claimed", {
 
   prep <- cmo_dag_data()
 
-  without <- analyze(prep, "disease", covariates = "age",
-                     methods = "association", effort = "fast",
-                     plots = FALSE, quiet = TRUE)
+  without <- analyze(prep, "disease", covariates = "age", effort = "fast", plots = FALSE, 
+    quiet = TRUE, control = analysis_control(methods = "association"))
 
-  with_dag <- analyze(prep, "disease", covariates = "age",
-                      dag = cmo_structure(), methods = "association",
-                      effort = "fast", plots = FALSE, quiet = TRUE)
+  with_dag <- analyze(prep, "disease", covariates = "age", effort = "fast", plots = FALSE, 
+    quiet = TRUE, assume = analysis_assumptions(dag = cmo_structure()), 
+    control = analysis_control(methods = "association"))
 
   estimates <- function(r) {
     key <- vapply(r$evidence, function(e) paste(e$source, e$target),
@@ -277,9 +274,9 @@ test_that("a DAG naming none of the analysed variables is harmless", {
 
   unrelated <- data.frame(from = "x", to = "y", stringsAsFactors = FALSE)
 
-  res <- analyze(cmo_dag_data(), "disease", covariates = "age",
-                 dag = unrelated, methods = "association", effort = "fast",
-                 plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_dag_data(), "disease", covariates = "age", effort = "fast", 
+    plots = FALSE, quiet = TRUE, assume = analysis_assumptions(dag = unrelated), 
+    control = analysis_control(methods = "association"))
 
   expect_true(all(vapply(res$evidence,
                          function(e) is.na(e$identifiable), logical(1))))

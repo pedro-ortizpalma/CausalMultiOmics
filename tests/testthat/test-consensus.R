@@ -24,8 +24,8 @@ cmo_consensus_data <- function(n = 200, seed = 21) {
 }
 
 cmo_consensus <- function(...) {
-  analyze(cmo_consensus_data(), "y", methods = "association",
-          effort = "standard", plots = FALSE, quiet = TRUE, ...)$consensus
+  analyze(cmo_consensus_data(), "y", effort = "standard", plots = FALSE, 
+    quiet = TRUE, ..., control = analysis_control(methods = "association"))$consensus
 }
 
 # =============================================================================
@@ -34,8 +34,8 @@ cmo_consensus <- function(...) {
 
 test_that("without resampling it says so instead of implying stability", {
 
-  res <- analyze(cmo_consensus_data(), "y", methods = "association",
-                 effort = "fast", plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_consensus_data(), "y", effort = "fast", plots = FALSE, 
+    quiet = TRUE, control = analysis_control(methods = "association"))
 
   cg <- res$consensus
 
@@ -288,8 +288,8 @@ test_that("the plot survives a consensus with nothing rankable", {
 
 test_that("the result carries the consensus and the run log mentions it", {
 
-  res <- analyze(cmo_consensus_data(), "y", methods = "association",
-                 effort = "standard", plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_consensus_data(), "y", effort = "standard", plots = FALSE, 
+    quiet = TRUE, control = analysis_control(methods = "association"))
 
   expect_s3_class(res$consensus, "ConsensusGraph")
   expect_true(any(grepl("Consensus graph", res$logs)))

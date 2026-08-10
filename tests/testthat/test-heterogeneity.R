@@ -139,9 +139,9 @@ test_that("the check survives a binary outcome", {
 
 test_that("an effect present in one group only is detected and described", {
 
-  res <- analyze(cmo_shapes(), "y", methods = "association",
-                 effort = "standard", heterogeneity = "sex",
-                 plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_shapes(), "y", effort = "standard", plots = FALSE, 
+    quiet = TRUE, assume = analysis_assumptions(heterogeneity = "sex"), 
+    control = analysis_control(methods = "association"))
 
   e <- cmo_edge(res, "subgroup")
 
@@ -168,9 +168,9 @@ test_that("an effect present in one group only is detected and described", {
 
 test_that("a uniform effect is not flagged as differing", {
 
-  res <- analyze(cmo_shapes(), "y", methods = "association",
-                 effort = "standard", heterogeneity = "sex",
-                 plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_shapes(), "y", effort = "standard", plots = FALSE, 
+    quiet = TRUE, assume = analysis_assumptions(heterogeneity = "sex"), 
+    control = analysis_control(methods = "association"))
 
   e <- cmo_edge(res, "uniform")
 
@@ -183,9 +183,9 @@ test_that("a uniform effect is not flagged as differing", {
 
 test_that("the reversal is stated, not just the difference", {
 
-  res <- analyze(cmo_shapes(), "y", methods = "association",
-                 effort = "standard", heterogeneity = "sex",
-                 plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_shapes(), "y", effort = "standard", plots = FALSE, 
+    quiet = TRUE, assume = analysis_assumptions(heterogeneity = "sex"), 
+    control = analysis_control(methods = "association"))
 
   e <- cmo_edge(res, "subgroup")
 
@@ -198,8 +198,8 @@ test_that("the reversal is stated, not just the difference", {
 
 test_that("nothing is claimed when no modifier was named", {
 
-  res <- analyze(cmo_shapes(), "y", methods = "association",
-                 effort = "standard", plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_shapes(), "y", effort = "standard", plots = FALSE, 
+    quiet = TRUE, control = analysis_control(methods = "association"))
 
   for (e in res$evidence) {
     expect_true(is.na(e$heterogeneity_fdr))
@@ -242,9 +242,9 @@ test_that("the strongest interaction wins the slot when several were tested", {
 
 test_that("the graph table carries both answers", {
 
-  res <- analyze(cmo_shapes(), "y", methods = "association",
-                 effort = "standard", heterogeneity = "sex",
-                 plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_shapes(), "y", effort = "standard", plots = FALSE, 
+    quiet = TRUE, assume = analysis_assumptions(heterogeneity = "sex"), 
+    control = analysis_control(methods = "association"))
 
   expect_true(all(c("share_driving_effect", "heterogeneity_fdr") %in%
                     names(res$graph$edges)))
@@ -253,9 +253,9 @@ test_that("the graph table carries both answers", {
 
 test_that("the run log names both counts", {
 
-  res <- analyze(cmo_shapes(), "y", methods = "association",
-                 effort = "standard", heterogeneity = "sex",
-                 plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_shapes(), "y", effort = "standard", plots = FALSE, 
+    quiet = TRUE, assume = analysis_assumptions(heterogeneity = "sex"), 
+    control = analysis_control(methods = "association"))
 
   expect_true(any(grepl("Effect concentration", res$logs)))
   expect_true(any(grepl("Heterogeneity", res$logs)))
@@ -264,8 +264,8 @@ test_that("the run log names both counts", {
 
 test_that("the score decomposition names the spread", {
 
-  res <- analyze(cmo_shapes(), "y", methods = "association",
-                 effort = "standard", plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_shapes(), "y", effort = "standard", plots = FALSE, 
+    quiet = TRUE, control = analysis_control(methods = "association"))
 
   parts <- .decompose_evidence(res$evidence[[1]])
 
@@ -275,9 +275,9 @@ test_that("the score decomposition names the spread", {
 
 test_that("the edge prints both answers without complaint", {
 
-  res <- analyze(cmo_shapes(), "y", methods = "association",
-                 effort = "standard", heterogeneity = "sex",
-                 plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_shapes(), "y", effort = "standard", plots = FALSE, 
+    quiet = TRUE, assume = analysis_assumptions(heterogeneity = "sex"), 
+    control = analysis_control(methods = "association"))
 
   e <- cmo_edge(res, "subgroup")
 
@@ -294,8 +294,8 @@ test_that("the edge prints both answers without complaint", {
 
 test_that("neither check runs at the cheapest effort", {
 
-  res <- analyze(cmo_shapes(), "y", methods = "association", effort = "fast",
-                 plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_shapes(), "y", effort = "fast", plots = FALSE, quiet = TRUE, 
+    control = analysis_control(methods = "association"))
 
   expect_true(all(vapply(res$evidence,
                          function(e) is.na(e$share_driving_effect),

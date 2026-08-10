@@ -1026,6 +1026,37 @@ EvidenceEdge <- function() {
       adjustment_problems = character(),
 
       # -----------------------------------------------------------------------
+      # Whether the effect is estimable at all
+      # -----------------------------------------------------------------------
+      #
+      # The second identification condition, and the one nothing here used to
+      # mention. At every combination of the adjustment variables there has to
+      # be variation in the exposure; where there is none, the model does not
+      # fail, it extrapolates. Unlike unmeasured confounding this is a fact
+      # about the data in hand, so it is checkable.
+
+      positivity = NA,
+
+      residual_variation = NA_real_,
+
+      positivity_problems = character(),
+
+      # -----------------------------------------------------------------------
+      # What the instrument did to the estimate
+      # -----------------------------------------------------------------------
+      #
+      # Classical measurement error in an exposure attenuates a coefficient by
+      # exactly the reliability of the measurement. Correcting for it needs a
+      # number the data cannot supply, so nothing happens unless the caller
+      # states one.
+
+      reliability = NA_real_,
+
+      corrected_estimate = NA_real_,
+
+      corrected_ci = c(NA_real_, NA_real_),
+
+      # -----------------------------------------------------------------------
       # How much of this was measured rather than reconstructed
       # -----------------------------------------------------------------------
       #
@@ -1040,6 +1071,8 @@ EvidenceEdge <- function() {
       # through n; charging for them twice would double-count.
 
       data_quality = NA_real_,
+
+      fdr_across_outcomes = NA_real_,
 
       quality_flags = character(),
 

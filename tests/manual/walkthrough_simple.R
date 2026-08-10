@@ -857,7 +857,7 @@ if (section(7, "analyze(): building evidence")) {
 
   must_fail(analyze(study, STUDY$outcome), "must be a PreprocessingResult")
   must_fail(analyze(clean, "no_such_column"), "not a column")
-  must_fail(analyze(clean, STUDY$outcome, methods = "telepathy"),
+  must_fail(analyze(clean, STUDY$outcome, control = analysis_control(methods = "telepathy")),
             "Unknown generator")
   must_fail(analyze(clean, STUDY$outcome, blocks = "nope"), "Unknown block")
 
@@ -935,15 +935,15 @@ if (section(8, "The design decides which methods apply")) {
 
   step("Predictive goal: a narrower set of methods")
 
-  pred <- show(analyze(clean, outcome = STUDY$outcome, goal = "predictive",
-                       plots = FALSE, quiet = TRUE))
+  pred <- show(analyze(clean, outcome = STUDY$outcome, plots = FALSE, quiet = TRUE, 
+    control = analysis_control(goal = "predictive")))
 
   cat("\n  methods run :", paste(names(pred$models), collapse = ", "), "\n")
 
   step("A single method, on demand")
 
-  one <- show(analyze(clean, outcome = STUDY$outcome,
-                      methods = "association", plots = FALSE, quiet = TRUE))
+  one <- show(analyze(clean, outcome = STUDY$outcome, plots = FALSE, quiet = TRUE, 
+    control = analysis_control(methods = "association")))
 
   cat("\n  methods run :", paste(names(one$models), collapse = ", "), "\n")
 
@@ -1172,8 +1172,8 @@ if (section(12, "The effort dial: buying rigour with time")) {
 
   step("Overriding a single piece")
 
-  custom <- show(analyze(clean, STUDY$outcome, effort = "fast",
-                         resample = 20, plots = FALSE, quiet = TRUE))
+  custom <- show(analyze(clean, STUDY$outcome, effort = "fast", plots = FALSE, quiet = TRUE, 
+    control = analysis_control(resample = 20)))
 
   cat("\n  resampling ran despite effort = 'fast': ",
       isTRUE(custom$diagnostics$resampling$available), "\n", sep = "")
@@ -1426,9 +1426,8 @@ if (section(17, "Reading the result one layer at a time")) {
        " together would hand the whole budget to whichever block has the",
        " most columns, and a small clinical block would vanish.")
 
-  tight <- show(analyze(clean, STUDY$outcome, max_features = 8,
-                        min_per_block = 2, effort = "fast",
-                        plots = FALSE, quiet = TRUE), print_it = FALSE)
+  tight <- show(analyze(clean, STUDY$outcome, effort = "fast", plots = FALSE, quiet = TRUE, 
+    control = analysis_control(max_features = 8, min_per_block = 2)), print_it = FALSE)
 
   show(tight$data$screening$allocation)
 
@@ -1506,8 +1505,8 @@ if (section(18, "How much to trust any of this")) {
 
   step("How many relationships appear when there is nothing to find")
 
-  calibrated <- show(analyze(clean, STUDY$outcome, effort = "fast",
-                             permutations = 15, plots = FALSE, quiet = TRUE),
+  calibrated <- show(analyze(clean, STUDY$outcome, effort = "fast", plots = FALSE, quiet = TRUE, 
+    control = analysis_control(permutations = 15)),
                      print_it = FALSE)
 
   cal <- calibrated$diagnostics$null_calibration
@@ -1528,9 +1527,8 @@ if (section(18, "How much to trust any of this")) {
 
   step("Variables that should not appear, and did")
 
-  controls <- show(analyze(clean, STUDY$outcome, effort = "fast",
-                           negative_controls = STUDY$negative_controls,
-                           plots = FALSE, quiet = TRUE),
+  controls <- show(analyze(clean, STUDY$outcome, effort = "fast", plots = FALSE, quiet = TRUE, 
+    assume = analysis_assumptions(negative_controls = STUDY$negative_controls)),
                    print_it = FALSE)$diagnostics$negative_controls
 
   show(controls$notes)
@@ -1538,8 +1536,8 @@ if (section(18, "How much to trust any of this")) {
 
   step("Does the relationship hold in every subgroup?")
 
-  hetero <- show(analyze(clean, STUDY$outcome, effort = "fast",
-                         heterogeneity = "sex", plots = FALSE, quiet = TRUE),
+  hetero <- show(analyze(clean, STUDY$outcome, effort = "fast", plots = FALSE, quiet = TRUE, 
+    assume = analysis_assumptions(heterogeneity = "sex")),
                  print_it = FALSE)$diagnostics$heterogeneity
 
   if (isTRUE(hetero$available)) {
@@ -1591,8 +1589,7 @@ if (section(19, "Reproducibility guarantees")) {
   set.seed(123); invisible(check_data(study)); after_check <- runif(3)
 
   set.seed(123)
-  invisible(analyze(clean, STUDY$outcome, plots = FALSE, quiet = TRUE,
-                    bootstrap = 30))
+  invisible(analyze(clean, STUDY$outcome, plots = FALSE, quiet = TRUE, control = analysis_control(bootstrap = 30)))
   after_analyze <- runif(3)
 
   cat("  after check_data() : ", identical(before, after_check), "\n", sep = "")
@@ -1610,8 +1607,8 @@ if (section(19, "Reproducibility guarantees")) {
 
   step("Does the same input give the same answer?")
 
-  a <- analyze(clean, STUDY$outcome, plots = FALSE, quiet = TRUE, bootstrap = 30)
-  b <- analyze(clean, STUDY$outcome, plots = FALSE, quiet = TRUE, bootstrap = 30)
+  a <- analyze(clean, STUDY$outcome, plots = FALSE, quiet = TRUE, control = analysis_control(bootstrap = 30))
+  b <- analyze(clean, STUDY$outcome, plots = FALSE, quiet = TRUE, control = analysis_control(bootstrap = 30))
 
   same <- identical(
     vapply(a$evidence, function(e) e$evidence_score, numeric(1)),

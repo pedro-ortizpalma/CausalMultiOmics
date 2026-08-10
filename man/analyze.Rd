@@ -11,26 +11,10 @@ analyze(
   subject = NULL,
   covariates = NULL,
   blocks = "all",
-  goal = c("causal", "predictive"),
-  methods = NULL,
   effort = c("standard", "fast", "thorough", "exhaustive"),
-  resample = NULL,
-  resample_scheme = c("bootstrap", "cv"),
-  resample_methods = NULL,
-  permutations = NULL,
-  diagnostics = NULL,
-  heterogeneity = NULL,
-  negative_controls = NULL,
-  modifiable = NULL,
-  dag = NULL,
-  forbidden = NULL,
-  required = NULL,
-  max_features = 150,
-  min_per_block = 10,
-  bootstrap = 200,
-  min_evidence_score = 1,
+  assume = NULL,
+  control = NULL,
   plots = TRUE,
-  seed = 1L,
   quiet = FALSE
 )
 }
@@ -39,7 +23,9 @@ analyze(
 \code{preprocess()}. Preprocessing decisions are already fixed, which is
 why analysis starts here rather than from a \code{MultiOmicsData}.}
 
-\item{outcome}{Name of the outcome column in the metadata.}
+\item{outcome}{Name of the outcome column in the metadata. Several may be
+named, in which case each is analysed and multiplicity is corrected
+across all of them together rather than within each.}
 
 \item{time}{Optional name of a time or follow-up column. Combined with a
 binary outcome this makes the design a survival one.}
@@ -52,93 +38,29 @@ for. These form the declared adjustment set.}
 
 \item{blocks}{Blocks to analyse, or \code{"all"}.}
 
-\item{goal}{Either \code{"causal"} (default) or \code{"predictive"}. The
-goal selects which generators run.}
-
-\item{methods}{Optional character vector naming the generators to run,
-overriding \code{goal}.}
-
 \item{effort}{How much computation to spend. \code{"fast"} runs the
 generators once and nothing else; \code{"standard"} adds model
 diagnostics and 50 resamples; \code{"thorough"} adds null calibration;
-\code{"exhaustive"} resamples every generator 500 times. Each component
-can be overridden individually by the arguments below, which take
-precedence.}
+\code{"exhaustive"} resamples every generator 500 times. Anything set
+explicitly in \code{control} wins over the preset.}
 
-\item{resample}{Number of resamples used to test whether a relationship
-survives a different sample. \code{0} switches it off. Cost is linear in
-this number.}
+\item{assume}{What you are claiming, built with
+\code{\link{analysis_assumptions}}: the causal diagram, which variables
+are modifiable, measurement reliability, competing events. Every one is a
+statement the data cannot check, and every one changes what may be
+concluded.}
 
-\item{resample_scheme}{Either \code{"bootstrap"} or \code{"cv"}.}
-
-\item{resample_methods}{Which generators to re-run on each resample. The
-cheap ones by default, because structure learning and SEM are what make
-resampling expensive.}
-
-\item{permutations}{Number of outcome permutations used to measure how many
-relationships the engine finds when there is nothing to find. \code{0}
-switches it off.}
-
-\item{diagnostics}{Whether to compute fit quality and assumption checks for
-the models behind the leading relationships.}
-
-\item{heterogeneity}{Optional metadata columns to test as effect modifiers.}
-
-\item{negative_controls}{Optional feature names that should not appear in
-the graph. If they do, the run is flagged.}
-
-\item{modifiable}{Optional variables or blocks the user could plausibly
-act on. When supplied, the report expresses the leading relationships as
-contrasts in the original measurement units. Nothing is included by
-default: a contrast for a genotype is arithmetic without meaning. See
-\code{\link{counterfactual}}.}
-
-\item{dag}{Optional causal structure, as a \code{dagitty} object, a
-dagitty specification string, or a data.frame with \code{from} and
-\code{to} columns. Supplying one lets the engine check whether the
-adjustment actually identifies each effect, rather than only recording
-that something was adjusted for. It never changes an estimate; it changes
-what may be claimed about one. See \code{\link{check_dag}}.}
-
-\item{forbidden}{Optional data.frame of \code{from}/\code{to} pairs that
-structure learning may not propose. Ruling out relationships that cannot
-exist removes them from a superexponential search rather than from its
-output, which is worth more than any amount of extra computation. Only
-the Bayesian network generator can use it.}
-
-\item{required}{Optional data.frame of \code{from}/\code{to} pairs that
-structure learning must include.
-
-Both are claims about the world in the same way a DAG is, so both are
-recorded as assumptions on every edge they shaped: a constraint applied
-silently would let the caller's own belief reappear as a finding.}
-
-\item{max_features}{Cap on the number of features carried into the
-pairwise stage. Features are screened against the outcome first, and the
-budget is shared out between blocks rather than given to whichever block
-has the most columns.}
-
-\item{min_per_block}{Floor on how many features each block keeps through
-screening, or the whole block when it is smaller. Without it a block of
-twenty thousand transcripts takes every slot and a five-variable
-clinical block disappears from the analysis. Every block keeps at least
-one feature even when that pushes the total past \code{max_features}:
-losing a block entirely is worse than exceeding a target set for speed.}
-
-\item{bootstrap}{Bootstrap resamples used for mediation.}
-
-\item{min_evidence_score}{Relationships scoring below this are not
-reported.}
+\item{control}{How much work to do, built with
+\code{\link{analysis_control}}: which generators, how many resamples, how
+many features. Nothing here changes what may be concluded.}
 
 \item{plots}{Whether to render diagnostic plots.}
-
-\item{seed}{Seed used for every random procedure. The caller's random
-number generator is restored afterwards.}
 
 \item{quiet}{Whether to suppress progress messages.}
 }
 \value{
-A \code{CMOResult} object.
+A \code{CMOResult} object, or a \code{CMOMultiResult} when several
+outcomes were named.
 }
 \description{
 \code{analyze()} does not return a model. It runs every applicable
@@ -163,6 +85,16 @@ hold. An edge identified as \code{"none"} or \code{"adjustment"} is an
 association, however high its score.
 }
 
+\section{The seed}{
+
+
+Every random procedure runs under \code{control$seed}, and the caller's
+random number generator is restored afterwards. An analysis is a read-only
+act: one that moved your generator would silently change every simulation
+you ran next.
+}
+
 \seealso{
-\code{\link{preprocess}}, \code{\link{annotate_evidence}}
+\code{\link{analysis_assumptions}}, \code{\link{analysis_control}},
+\code{\link{preprocess}}
 }

@@ -44,8 +44,8 @@ made it worth reading.
 \donttest{
 sim <- simulate_data(n = 100, blocks = list(a = 4))
 prep <- preprocess(sim, check_data(sim), plots = FALSE, quiet = TRUE)
-res <- analyze(prep, "y", methods = "association", effort = "fast",
-               plots = FALSE, quiet = TRUE)
+res <- analyze(prep, "y", effort = "fast", plots = FALSE, quiet = TRUE,
+               control = analysis_control(methods = "association"))
 
 export_graph(res, file.path(tempdir(), "graph.graphml"))
 }

@@ -297,8 +297,8 @@ test_that("analyze() raises the explained error end to end", {
                      force = TRUE)
 
   expect_error(
-    analyze(prep, "y", methods = "association", effort = "fast",
-            plots = FALSE, quiet = TRUE),
+    analyze(prep, "y", effort = "fast", plots = FALSE, quiet = TRUE, 
+    control = analysis_control(methods = "association")),
     "Samples in each block"
   )
 

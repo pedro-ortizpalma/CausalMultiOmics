@@ -10,8 +10,8 @@ cmo_exportable <- function() {
 
   prep <- preprocess(sim, check_data(sim), plots = FALSE, quiet = TRUE)
 
-  analyze(prep, "y", methods = "association", effort = "fast",
-          plots = FALSE, quiet = TRUE)
+  analyze(prep, "y", effort = "fast", plots = FALSE, quiet = TRUE, 
+    control = analysis_control(methods = "association"))
 
 }
 
@@ -180,8 +180,8 @@ test_that("forbidden relationships cannot appear in the learned graph", {
   banned <- data.frame(from = "y", to = c("x", "z", "w"),
                        stringsAsFactors = FALSE)
 
-  res <- analyze(prep, "y", methods = "bayesnet", effort = "fast",
-                 forbidden = banned, plots = FALSE, quiet = TRUE)
+  res <- analyze(prep, "y", effort = "fast", plots = FALSE, quiet = TRUE, 
+    assume = analysis_assumptions(forbidden = banned), control = analysis_control(methods = "bayesnet"))
 
   learned <- res$graph$edges
 
@@ -206,9 +206,9 @@ test_that("a constraint is recorded as an assumption, not applied silently", {
 
   prep <- preprocess(sim, check_data(sim), plots = FALSE, quiet = TRUE)
 
-  res <- analyze(prep, "y", methods = "bayesnet", effort = "fast",
-                 forbidden = data.frame(from = "y", to = c("x", "z", "w")),
-                 plots = FALSE, quiet = TRUE)
+  res <- analyze(prep, "y", effort = "fast", plots = FALSE, quiet = TRUE, 
+    assume = analysis_assumptions(forbidden = data.frame(from = "y", 
+        to = c("x", "z", "w"))), control = analysis_control(methods = "bayesnet"))
 
   skip_if(length(res$evidence) == 0)
 
@@ -225,12 +225,12 @@ test_that("analyze() checks the constraint before running anything", {
   prep <- preprocess(sim, check_data(sim), plots = FALSE, quiet = TRUE)
 
   expect_error(
-    analyze(prep, "y", forbidden = data.frame(a = 1), quiet = TRUE),
+    analyze(prep, "y", quiet = TRUE, assume = analysis_assumptions(forbidden = data.frame(a = 1))),
     "'from' and 'to'")
 
   expect_error(
-    analyze(prep, "y", required = data.frame(from = "x", to = "x"),
-            quiet = TRUE),
+    analyze(prep, "y", quiet = TRUE, assume = analysis_assumptions(required = data.frame(from = "x", 
+    to = "x"))),
     "to itself")
 
 })

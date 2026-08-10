@@ -12,8 +12,8 @@ cmo_run <- function(seed = 1, effect = 0.8, outcome_type = "continuous",
 
   prep <- preprocess(sim, check_data(sim), plots = FALSE, quiet = TRUE)
 
-  analyze(prep, "y", methods = "association", effort = "fast",
-          plots = FALSE, quiet = TRUE)
+  analyze(prep, "y", effort = "fast", plots = FALSE, quiet = TRUE, 
+    control = analysis_control(methods = "association"))
 
 }
 
@@ -104,8 +104,8 @@ test_that("comparability is checked before anything is compared", {
                        dag = data.frame(from = "x", to = "w", effect = 0.8),
                        outcome = "w")
   prep <- preprocess(sim, check_data(sim), plots = FALSE, quiet = TRUE)
-  b <- analyze(prep, "w", methods = "association", effort = "fast",
-               plots = FALSE, quiet = TRUE)
+  b <- analyze(prep, "w", effort = "fast", plots = FALSE, quiet = TRUE, 
+    control = analysis_control(methods = "association"))
 
   cmp <- compare_results(a, b)
 
@@ -125,11 +125,11 @@ test_that("a different adjustment makes a different estimate", {
 
   prep <- preprocess(sim, check_data(sim), plots = FALSE, quiet = TRUE)
 
-  plain <- analyze(prep, "y", methods = "association", effort = "fast",
-                   plots = FALSE, quiet = TRUE)
+  plain <- analyze(prep, "y", effort = "fast", plots = FALSE, quiet = TRUE, 
+    control = analysis_control(methods = "association"))
 
-  adjusted <- analyze(prep, "y", covariates = "age", methods = "association",
-                      effort = "fast", plots = FALSE, quiet = TRUE)
+  adjusted <- analyze(prep, "y", covariates = "age", effort = "fast", plots = FALSE, 
+    quiet = TRUE, control = analysis_control(methods = "association"))
 
   cmp <- compare_results(plain, adjusted)
 

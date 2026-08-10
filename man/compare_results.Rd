@@ -52,8 +52,8 @@ two <- simulate_data(n = 200, blocks = list(a = c("x", "z")),
 
 fit <- function(s) {
   p <- preprocess(s, check_data(s), plots = FALSE, quiet = TRUE)
-  analyze(p, "y", methods = "association", effort = "fast",
-          plots = FALSE, quiet = TRUE)
+  analyze(p, "y", effort = "fast", plots = FALSE, quiet = TRUE,
+          control = analysis_control(methods = "association"))
 }
 
 compare_results(fit(one), fit(two))

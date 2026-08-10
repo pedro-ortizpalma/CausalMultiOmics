@@ -36,8 +36,8 @@ cmo_reportable <- function() {
 
   prep <- preprocess(obj, check_data(obj), plots = FALSE, quiet = TRUE)
 
-  analyze(prep, outcome = "HDL", covariates = "age", plots = TRUE,
-          quiet = TRUE, bootstrap = 50)
+  analyze(prep, outcome = "HDL", covariates = "age", plots = TRUE, 
+    quiet = TRUE, control = analysis_control(bootstrap = 50))
 
 }
 
@@ -230,8 +230,8 @@ test_that("a survival report reports the relationships measured in order", {
   )
 
   prep <- preprocess(obj, check_data(obj), plots = FALSE, quiet = TRUE)
-  res <- analyze(prep, "status", time = "fu_time", plots = FALSE,
-                 quiet = TRUE, bootstrap = 30)
+  res <- analyze(prep, "status", time = "fu_time", plots = FALSE, quiet = TRUE, 
+    control = analysis_control(bootstrap = 30))
 
   plain <- .result_plain_statements(res)
 

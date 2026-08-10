@@ -205,8 +205,8 @@ test_that("resampling skips the per-method table, and reporting keeps it", {
 
   prep <- preprocess(sim, check_data(sim), plots = FALSE, quiet = TRUE)
 
-  res <- analyze(prep, "y", methods = c("association", "conditional"),
-                 effort = "standard", plots = FALSE, quiet = TRUE)
+  res <- analyze(prep, "y", effort = "standard", plots = FALSE, quiet = TRUE, 
+    control = analysis_control(methods = c("association", "conditional")))
 
   # Every reported edge keeps its own evidence.
   for (e in res$evidence) {

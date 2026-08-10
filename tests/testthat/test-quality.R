@@ -182,8 +182,8 @@ test_that("a clean dataset is left exactly as it was", {
 
   prep <- preprocess(obj, check_data(obj), plots = FALSE, quiet = TRUE)
 
-  res <- analyze(prep, "y", methods = "association", effort = "fast",
-                 plots = FALSE, quiet = TRUE)
+  res <- analyze(prep, "y", effort = "fast", plots = FALSE, quiet = TRUE, 
+    control = analysis_control(methods = "association"))
 
   for (e in res$evidence) {
     expect_equal(e$data_quality, 1)
@@ -201,8 +201,8 @@ test_that("a clean dataset is left exactly as it was", {
 
 test_that("imputed variables reach the result carrying their provenance", {
 
-  res <- analyze(cmo_gappy(), "y", methods = "association",
-                 effort = "standard", plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_gappy(), "y", effort = "standard", plots = FALSE, quiet = TRUE, 
+    control = analysis_control(methods = "association"))
 
   gappy <- Filter(function(e) identical(e$source, "gappy"), res$evidence)
 
@@ -223,8 +223,8 @@ test_that("the ranking agrees with the scores printed beside it", {
   # that was measured. Leaving the old order would show a ranking that
   # contradicts its own numbers.
 
-  res <- analyze(cmo_gappy(), "y", methods = "association",
-                 effort = "standard", plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_gappy(), "y", effort = "standard", plots = FALSE, quiet = TRUE, 
+    control = analysis_control(methods = "association"))
 
   scores <- vapply(res$evidence, function(e) e$evidence_score, numeric(1))
 
@@ -234,8 +234,8 @@ test_that("the ranking agrees with the scores printed beside it", {
 
 test_that("the graph table carries data quality beside the score", {
 
-  res <- analyze(cmo_gappy(), "y", methods = "association",
-                 effort = "standard", plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_gappy(), "y", effort = "standard", plots = FALSE, quiet = TRUE, 
+    control = analysis_control(methods = "association"))
 
   expect_true("data_quality" %in% names(res$graph$edges))
 
@@ -243,8 +243,8 @@ test_that("the graph table carries data quality beside the score", {
 
 test_that("the score decomposition names the discount", {
 
-  res <- analyze(cmo_gappy(), "y", methods = "association",
-                 effort = "standard", plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_gappy(), "y", effort = "standard", plots = FALSE, quiet = TRUE, 
+    control = analysis_control(methods = "association"))
 
   parts <- .decompose_evidence(res$evidence[[1]])
 
@@ -334,8 +334,8 @@ test_that("nothing imputed means nothing to check", {
 
 test_that("a real relationship survives the removal of the filled rows", {
 
-  res <- analyze(cmo_gappy(), "y", methods = "association",
-                 effort = "standard", plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_gappy(), "y", effort = "standard", plots = FALSE, quiet = TRUE, 
+    control = analysis_control(methods = "association"))
 
   gappy <- Filter(function(e) identical(e$source, "gappy"), res$evidence)
 
@@ -350,8 +350,8 @@ test_that("a real relationship survives the removal of the filled rows", {
 
 test_that("the cheap check is skipped when diagnostics are off", {
 
-  res <- analyze(cmo_gappy(), "y", methods = "association", effort = "fast",
-                 plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_gappy(), "y", effort = "fast", plots = FALSE, quiet = TRUE, 
+    control = analysis_control(methods = "association"))
 
   expect_true(all(vapply(res$evidence,
                          function(e) is.na(e$complete_case_estimate),

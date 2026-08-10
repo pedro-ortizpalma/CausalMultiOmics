@@ -191,7 +191,7 @@ structure <- data.frame(
 # Adjusting for the mediator removes part of the effect being measured.
 check_dag(structure, "protein", "disease", adjusted = c("age", "inflammation"))
 
-analyze(clean, outcome = "group", dag = structure)
+analyze(clean, outcome = "group", assume = analysis_assumptions(dag = structure))
 ```
 
 Adjusting for a mediator or a collider makes an estimate worse than doing

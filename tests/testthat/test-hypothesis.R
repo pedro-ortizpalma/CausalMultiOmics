@@ -21,9 +21,9 @@ cmo_discovery <- function(...) {
 }
 
 cmo_result <- function(dag = NULL, prep = NULL) {
-  analyze(.report_or(prep, cmo_discovery()), "y", covariates = "age",
-          dag = dag, methods = "association", effort = "standard",
-          plots = FALSE, quiet = TRUE)
+  analyze(.report_or(prep, cmo_discovery()), "y", covariates = "age", 
+    effort = "standard", plots = FALSE, quiet = TRUE, assume = analysis_assumptions(dag = dag), 
+    control = analysis_control(methods = "association"))
 }
 
 cmo_dag <- function() {

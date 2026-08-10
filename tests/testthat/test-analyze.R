@@ -47,8 +47,8 @@ cmo_mechanism <- function(n = 80, seed = 42) {
 
 cmo_analysis <- function(...) {
 
-  analyze(cmo_mechanism(), outcome = "y", plots = FALSE, quiet = TRUE,
-          bootstrap = 50, ...)
+  analyze(cmo_mechanism(), outcome = "y", plots = FALSE, quiet = TRUE, 
+    ..., control = analysis_control(bootstrap = 50))
 
 }
 
@@ -84,7 +84,7 @@ test_that("analyze() validates the outcome and the generator names", {
   prep <- cmo_mechanism()
 
   expect_error(analyze(prep, "not_a_column", quiet = TRUE), "not a column")
-  expect_error(analyze(prep, "y", methods = "telepathy", quiet = TRUE),
+  expect_error(analyze(prep, "y", quiet = TRUE, control = analysis_control(methods = "telepathy")),
                "Unknown generator")
   expect_error(analyze(prep, "y", blocks = "nope", quiet = TRUE),
                "Unknown block")
@@ -147,8 +147,8 @@ test_that("declared covariates make the identification an adjusted one", {
   # methods, and indexing the lookup table with it reported every edge as
   # unidentified no matter what was adjusted for.
 
-  res <- analyze(cmo_mechanism(), outcome = "y", covariates = "age",
-                 plots = FALSE, quiet = TRUE, bootstrap = 50)
+  res <- analyze(cmo_mechanism(), outcome = "y", covariates = "age", plots = FALSE, 
+    quiet = TRUE, control = analysis_control(bootstrap = 50))
 
   strategies <- vapply(res$evidence, function(e) e$identification, character(1))
 
@@ -176,8 +176,8 @@ test_that("a cross-sectional analysis never claims temporal identification", {
 
 test_that("a survival design does claim temporal precedence", {
 
-  res <- analyze(cmo_mechanism(), outcome = "status", time = "fu_time",
-                 plots = FALSE, quiet = TRUE, bootstrap = 50)
+  res <- analyze(cmo_mechanism(), outcome = "status", time = "fu_time", 
+    plots = FALSE, quiet = TRUE, control = analysis_control(bootstrap = 50))
 
   expect_equal(res$design$type, "survival")
   expect_gt(res$performance$temporal_edges, 0)
@@ -263,7 +263,7 @@ test_that("analyze() leaves the caller's RNG untouched", {
   expected <- runif(3)
 
   set.seed(321)
-  invisible(analyze(prep, "y", plots = FALSE, quiet = TRUE, bootstrap = 30))
+  invisible(analyze(prep, "y", plots = FALSE, quiet = TRUE, control = analysis_control(bootstrap = 30)))
   actual <- runif(3)
 
   expect_equal(actual, expected)
@@ -274,8 +274,8 @@ test_that("analyze() is deterministic", {
 
   prep <- cmo_mechanism()
 
-  a <- analyze(prep, "y", plots = FALSE, quiet = TRUE, bootstrap = 50)
-  b <- analyze(prep, "y", plots = FALSE, quiet = TRUE, bootstrap = 50)
+  a <- analyze(prep, "y", plots = FALSE, quiet = TRUE, control = analysis_control(bootstrap = 50))
+  b <- analyze(prep, "y", plots = FALSE, quiet = TRUE, control = analysis_control(bootstrap = 50))
 
   expect_equal(
     vapply(a$evidence, function(e) e$evidence_score, numeric(1)),
@@ -292,16 +292,16 @@ test_that("the design selects which generators can run", {
 
   prep <- cmo_mechanism()
 
-  cross <- analyze(prep, "y", plots = FALSE, quiet = TRUE, bootstrap = 30)
+  cross <- analyze(prep, "y", plots = FALSE, quiet = TRUE, control = analysis_control(bootstrap = 30))
   expect_false("survival" %in% names(cross$models))
   expect_false("longitudinal" %in% names(cross$models))
 
-  long <- analyze(prep, "y", subject = "subject", plots = FALSE, quiet = TRUE,
-                  bootstrap = 30)
+  long <- analyze(prep, "y", subject = "subject", plots = FALSE, quiet = TRUE, 
+    control = analysis_control(bootstrap = 30))
   expect_equal(long$design$type, "longitudinal")
 
-  surv <- analyze(prep, "status", time = "fu_time", plots = FALSE,
-                  quiet = TRUE, bootstrap = 30)
+  surv <- analyze(prep, "status", time = "fu_time", plots = FALSE, quiet = TRUE, 
+    control = analysis_control(bootstrap = 30))
   expect_equal(surv$design$type, "survival")
   expect_true("survival" %in% names(surv$models))
 
@@ -309,8 +309,7 @@ test_that("the design selects which generators can run", {
 
 test_that("goal = 'predictive' runs a narrower set", {
 
-  res <- analyze(cmo_mechanism(), "y", goal = "predictive",
-                 plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_mechanism(), "y", plots = FALSE, quiet = TRUE, control = analysis_control(goal = "predictive"))
 
   expect_true(all(names(res$models) %in%
                     c("association", "elasticnet", "randomforest")))
@@ -319,8 +318,7 @@ test_that("goal = 'predictive' runs a narrower set", {
 
 test_that("a missing optional package is reported, not fatal", {
 
-  res <- analyze(cmo_mechanism(), "y", methods = "association",
-                 plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_mechanism(), "y", plots = FALSE, quiet = TRUE, control = analysis_control(methods = "association"))
 
   expect_length(res$models, 1)
   expect_true(length(res$evidence) > 0)
@@ -347,7 +345,7 @@ test_that("blocks are joined on shared samples and the loss is recorded", {
   )
 
   prep <- preprocess(obj, check_data(obj), plots = FALSE, quiet = TRUE)
-  res <- analyze(prep, "y", plots = FALSE, quiet = TRUE, bootstrap = 30)
+  res <- analyze(prep, "y", plots = FALSE, quiet = TRUE, control = analysis_control(bootstrap = 30))
 
   expect_equal(length(res$data$samples), 30)
   expect_length(res$data$dropped_samples, 10)
@@ -406,8 +404,8 @@ test_that("screening is applied and recorded when the space is large", {
 
   prep <- preprocess(obj, check_data(obj), plots = FALSE, quiet = TRUE)
 
-  res <- analyze(prep, "y", max_features = 20, plots = FALSE, quiet = TRUE,
-                 bootstrap = 30, methods = "association")
+  res <- analyze(prep, "y", plots = FALSE, quiet = TRUE, control = analysis_control(max_features = 20, 
+    bootstrap = 30, methods = "association"))
 
   expect_true(res$data$screening$screened)
   expect_equal(res$performance$features_retained, 20)

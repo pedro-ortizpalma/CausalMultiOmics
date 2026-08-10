@@ -359,8 +359,8 @@ test_that("a planted driver is recovered by analyze()", {
 
   prep <- preprocess(sim, check_data(sim), plots = FALSE, quiet = TRUE)
 
-  res <- analyze(prep, "y", methods = "association", effort = "fast",
-                 plots = FALSE, quiet = TRUE)
+  res <- analyze(prep, "y", effort = "fast", plots = FALSE, quiet = TRUE, 
+    control = analysis_control(methods = "association"))
 
   scores <- stats::setNames(
     vapply(res$evidence, function(e) e$evidence_score, numeric(1)),
@@ -389,8 +389,8 @@ test_that("a study with gaps and batches still runs end to end", {
 
   expect_no_error({
     prep <- preprocess(sim, check_data(sim), plots = FALSE, quiet = TRUE)
-    analyze(prep, "y", methods = "association", effort = "fast",
-            plots = FALSE, quiet = TRUE)
+    analyze(prep, "y", effort = "fast", plots = FALSE, quiet = TRUE, 
+    control = analysis_control(methods = "association"))
   })
 
 })

@@ -44,8 +44,8 @@ obj <- load_data(
   metadata = data.frame(sample_id = ids, y = rnorm(60))
 )
 prep <- preprocess(obj, check_data(obj), plots = FALSE, quiet = TRUE)
-res <- analyze(prep, "y", methods = "association", effort = "fast",
-               plots = FALSE, quiet = TRUE)
+res <- analyze(prep, "y", effort = "fast", plots = FALSE, quiet = TRUE,
+               control = analysis_control(methods = "association"))
 
 hypothesis(res)
 }

@@ -115,8 +115,8 @@ test_that("the quantity matches the model that produced it", {
   prep <- cmo_two_blocks()
 
   # A Cox model reports a log hazard ratio, whatever else is running.
-  surv <- analyze(prep, "status", time = "fu", methods = c("survival"),
-                  effort = "fast", plots = FALSE, quiet = TRUE)
+  surv <- analyze(prep, "status", time = "fu", effort = "fast", plots = FALSE, 
+    quiet = TRUE, control = analysis_control(methods = c("survival")))
 
   skip_if(length(surv$evidence) == 0)
 
@@ -124,10 +124,10 @@ test_that("the quantity matches the model that produced it", {
                          character(1)) == "log_hr"))
 
   # A logistic regression reports a log odds ratio; a linear one a coefficient.
-  binary <- analyze(prep, "status", methods = "association", effort = "fast",
-                    plots = FALSE, quiet = TRUE)
-  continuous <- analyze(prep, "y", methods = "association", effort = "fast",
-                        plots = FALSE, quiet = TRUE)
+  binary <- analyze(prep, "status", effort = "fast", plots = FALSE, quiet = TRUE, 
+    control = analysis_control(methods = "association"))
+  continuous <- analyze(prep, "y", effort = "fast", plots = FALSE, quiet = TRUE, 
+    control = analysis_control(methods = "association"))
 
   skip_if(length(binary$evidence) == 0 || length(continuous$evidence) == 0)
 

@@ -44,8 +44,8 @@ test_that("a huge block no longer takes the whole screening budget", {
   # columns took all 60 slots and the two-variable clinical block vanished
   # from the analysis, taking every cross-block mediation with it.
 
-  res <- analyze(cmo_lopsided(), "HDL", max_features = 60, effort = "fast",
-                 plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_lopsided(), "HDL", effort = "fast", plots = FALSE, 
+    quiet = TRUE, control = analysis_control(max_features = 60))
 
   surviving <- table(res$data$feature_block[colnames(res$data$x)])
 
@@ -63,8 +63,8 @@ test_that("a huge block no longer takes the whole screening budget", {
 
 test_that("the allocation is recorded, not just applied", {
 
-  res <- analyze(cmo_lopsided(), "HDL", max_features = 60, effort = "fast",
-                 plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_lopsided(), "HDL", effort = "fast", plots = FALSE, 
+    quiet = TRUE, control = analysis_control(max_features = 60))
 
   allocation <- res$data$screening$allocation
 
@@ -134,8 +134,8 @@ test_that("a budget larger than the data changes nothing", {
 
 test_that("evidence is summarised between blocks", {
 
-  res <- analyze(cmo_lopsided(), "HDL", max_features = 50, effort = "fast",
-                 plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_lopsided(), "HDL", effort = "fast", plots = FALSE, 
+    quiet = TRUE, control = analysis_control(max_features = 50))
 
   blocks <- res$network$blocks$evidence
 
@@ -155,8 +155,8 @@ test_that("block shares add up to the whole", {
   # A relationship between two blocks belongs to both, so counting it whole
   # in each made the shares sum past 100.
 
-  res <- analyze(cmo_lopsided(), "HDL", max_features = 50, effort = "fast",
-                 plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_lopsided(), "HDL", effort = "fast", plots = FALSE, 
+    quiet = TRUE, control = analysis_control(max_features = 50))
 
   importance <- res$network$blocks$importance
 
@@ -167,8 +167,8 @@ test_that("block shares add up to the whole", {
 
 test_that("block importance reflects where the evidence actually is", {
 
-  res <- analyze(cmo_lopsided(), "HDL", max_features = 50, effort = "fast",
-                 plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_lopsided(), "HDL", effort = "fast", plots = FALSE, 
+    quiet = TRUE, control = analysis_control(max_features = 50))
 
   importance <- res$network$blocks$importance
 
@@ -182,8 +182,8 @@ test_that("block importance reflects where the evidence actually is", {
 
 test_that("blocks are scored by kind of evidence", {
 
-  res <- analyze(cmo_lopsided(), "HDL", max_features = 50, effort = "fast",
-                 plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_lopsided(), "HDL", effort = "fast", plots = FALSE, 
+    quiet = TRUE, control = analysis_control(max_features = 50))
 
   scores <- res$network$blocks$scores
 
@@ -205,8 +205,8 @@ test_that("communities are described by what they are made of", {
 
   skip_if_not_installed("igraph")
 
-  res <- analyze(cmo_lopsided(), "HDL", max_features = 50, effort = "fast",
-                 plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_lopsided(), "HDL", effort = "fast", plots = FALSE, 
+    quiet = TRUE, control = analysis_control(max_features = 50))
 
   communities <- res$network$blocks$communities
 
@@ -226,8 +226,8 @@ test_that("communities are described by what they are made of", {
 
 test_that("the graph can be read with blocks as the nodes", {
 
-  res <- analyze(cmo_lopsided(), "HDL", max_features = 50, effort = "fast",
-                 plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_lopsided(), "HDL", effort = "fast", plots = FALSE, 
+    quiet = TRUE, control = analysis_control(max_features = 50))
 
   block_graph <- res$network$blocks$graph
 
@@ -248,8 +248,8 @@ test_that("the graph can be read with blocks as the nodes", {
 
 test_that("crossing blocks is reported beside the score, not inside it", {
 
-  res <- analyze(cmo_lopsided(), "HDL", max_features = 50, effort = "fast",
-                 plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_lopsided(), "HDL", effort = "fast", plots = FALSE, 
+    quiet = TRUE, control = analysis_control(max_features = 50))
 
   edges <- res$graph$edges
 

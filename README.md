@@ -162,7 +162,7 @@ results
 #> Causal paths:                  2
 #> Plots:                         0
 #> Tables:                        15
-#> Runtime:                       1.29 s
+#> Runtime:                       0.94 s
 ```
 
 Every relationship carries the identification strategy that would
@@ -246,7 +246,7 @@ structure <- data.frame(
 # Adjusting for the mediator removes part of the effect being measured.
 check_dag(structure, "protein", "disease", adjusted = c("age", "inflammation"))
 
-analyze(clean, outcome = "group", dag = structure)
+analyze(clean, outcome = "group", assume = analysis_assumptions(dag = structure))
 ```
 
 Adjusting for a mediator or a collider makes an estimate worse than

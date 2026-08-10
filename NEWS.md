@@ -1,5 +1,78 @@
 # CausalMultiOmics 0.1.0
 
+## Two kinds of argument, kept apart
+
+* `analyze()` had twenty-seven arguments, which is not a signature but a
+  form. The count was not the problem: mixing two kinds of decision in one
+  list was. It now takes eleven, with the rest in two groups.
+* `analysis_assumptions()` holds what you are claiming — the causal diagram,
+  which variables are modifiable, measurement reliability, competing events,
+  structure-learning constraints. None can be derived from the data, all
+  change what may be concluded, and getting one wrong makes the answer wrong.
+* `analysis_control()` holds how much work to do — which generators, how many
+  resamples, how many features. Getting one wrong makes the answer slower or
+  noisier, never wrong.
+* A clean break, with no deprecation path. The old names are gone rather than
+  quietly accepted, and every call site in the package, the tests, the
+  walkthroughs, the vignette and the README was rewritten.
+
+## Positivity: the identification condition nothing checked
+
+* Reading an adjusted estimate causally takes two conditions. The first, no
+  unmeasured confounding, this package works hard at. The second is that at
+  every combination of the adjustment variables the exposure actually varies,
+  and until now nothing here said a word about it.
+* Where it fails the model does not fail with it. It extrapolates, and hands
+  back a coefficient with an interval like any other. If everyone over
+  seventy is hypertensive, the effect of hypertension at seventy is not
+  estimable from the data.
+* Unlike unmeasured confounding this one is checkable, because it is a fact
+  about the data in hand rather than about the world. Every relationship with
+  the outcome now carries `positivity` and `residual_variation`: how much of
+  the exposure is left to vary once the adjustment set has had its share.
+* Strata in which a two-level exposure never varies are counted separately,
+  since those people contribute no comparison and the model fills them in
+  from its own shape.
+
+## Measurement error
+
+* `assume = analysis_assumptions(reliability = )` corrects for the
+  attenuation a noisy exposure causes. Classical measurement error multiplies
+  a coefficient by exactly the reliability of the measurement, so dividing by
+  it undoes the damage.
+* Reported beside the measured estimate and never in place of it: the
+  correction rests on a number the caller supplied, and replacing the
+  measured value would hide an assumption inside a result.
+* The interval widens by the same factor. A correction that left it alone
+  would turn a noisier measurement into a stronger claim.
+* Nothing is guessed. A variable absent from `reliability` is left alone, and
+  a value outside 0 to 1 is refused.
+
+## Competing risks
+
+* A Cox model treats everything that is not the event as censoring, and
+  censoring means "still at risk, we just stopped looking". For someone who
+  died of another cause that is false, and in a mortality study it is not a
+  small falsehood.
+* Survival edges now say so. Naming `competing =` reports how many people had
+  one, and either way the edge states that what it carries is a
+  cause-specific hazard rather than a risk — and that a cause-specific hazard
+  can rise while the risk falls, if the competing cause rises faster.
+
+## Several outcomes
+
+* `outcome` accepts more than one name. Each is analysed on its own terms and
+  multiplicity is corrected across all of them together.
+* Running `analyze()` twice by hand gives the same estimates and the wrong
+  error rate: a relationship that was one of fifty tests is not one of a
+  hundred, and correcting within each outcome separately pretends the other
+  analysis was never run.
+* Every edge carries both figures, `fdr` for its own analysis and
+  `fdr_across_outcomes` for the study, and both are computed from the same
+  p-values so they can be read side by side.
+* Nothing is modelled jointly, and the result says so: a relationship found
+  for one outcome is no evidence about another.
+
 ## Data with a known answer
 
 * `simulate_data()` builds a multi-block study from a causal structure you

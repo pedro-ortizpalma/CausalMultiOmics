@@ -35,8 +35,8 @@ cmo_layered <- function(n = 100, seed = 5) {
 
 test_that("analyze() produces both circos figures", {
 
-  res <- analyze(cmo_layered(), "HDL", max_features = 40, effort = "fast",
-                 plots = TRUE, quiet = TRUE)
+  res <- analyze(cmo_layered(), "HDL", effort = "fast", plots = TRUE, quiet = TRUE, 
+    control = analysis_control(max_features = 40))
 
   expect_true("circos" %in% names(res$plots))
   expect_s3_class(res$plots$circos, "recordedplot")
@@ -52,8 +52,8 @@ test_that("analyze() produces both circos figures", {
 
 test_that("the circos survives being rasterised", {
 
-  res <- analyze(cmo_layered(), "HDL", max_features = 40, effort = "fast",
-                 plots = TRUE, quiet = TRUE)
+  res <- analyze(cmo_layered(), "HDL", effort = "fast", plots = TRUE, quiet = TRUE, 
+    control = analysis_control(max_features = 40))
 
   uri <- .html_plot_uri(res$plots$circos, width = 700, height = 700, res = 100)
 

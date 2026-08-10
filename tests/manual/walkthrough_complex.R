@@ -1472,8 +1472,8 @@ make_study <- function(n = 90, seed = 42) make_simulated_study(n, seed)
   prep <- preprocess(obj, check_data(obj), plots = FALSE, quiet = TRUE)
 
   list(
-    result = analyze(prep, "y", methods = "association", effort = "standard",
-                     heterogeneity = "sex", plots = FALSE, quiet = TRUE)
+    result = analyze(prep, "y", effort = "standard", plots = FALSE, quiet = TRUE, 
+    assume = analysis_assumptions(heterogeneity = "sex"), control = analysis_control(methods = "association"))
   )
 
 }
@@ -1511,8 +1511,8 @@ make_study <- function(n = 90, seed = 42) make_simulated_study(n, seed)
   prep <- preprocess(obj, check_data(obj), plots = FALSE, quiet = TRUE)
 
   list(
-    modules = analyze(prep, "y", methods = "association", effort = "fast",
-                      plots = FALSE, quiet = TRUE)$modules
+    modules = analyze(prep, "y", effort = "fast", plots = FALSE, quiet = TRUE, 
+    control = analysis_control(methods = "association"))$modules
   )
 
 }
@@ -1544,8 +1544,8 @@ make_study <- function(n = 90, seed = 42) make_simulated_study(n, seed)
   prep <- preprocess(discovery, check_data(discovery), plots = FALSE,
                      quiet = TRUE)
 
-  result <- analyze(prep, "y", covariates = "age", methods = "association",
-                    effort = "standard", plots = FALSE, quiet = TRUE)
+  result <- analyze(prep, "y", covariates = "age", effort = "standard", plots = FALSE, 
+    quiet = TRUE, control = analysis_control(methods = "association"))
 
   list(
     claim = hypothesis(result, "protein"),
@@ -2039,7 +2039,7 @@ if (section(7, "analyze(): building evidence")) {
 
   must_fail(analyze(study, STUDY$outcome), "must be a PreprocessingResult")
   must_fail(analyze(clean, blocks = ANALYSIS_BLOCKS, "no_such_column"), "not a column")
-  must_fail(analyze(clean, blocks = ANALYSIS_BLOCKS, STUDY$outcome, methods = "telepathy"),
+  must_fail(analyze(clean, blocks = ANALYSIS_BLOCKS, STUDY$outcome, control = analysis_control(methods = "telepathy")),
             "Unknown generator")
   must_fail(analyze(clean, STUDY$outcome, blocks = "nope"), "Unknown block")
 
@@ -2117,15 +2117,15 @@ if (section(8, "The design decides which methods apply")) {
 
   step("Predictive goal: a narrower set of methods")
 
-  pred <- show(analyze(clean, blocks = ANALYSIS_BLOCKS, outcome = STUDY$outcome, goal = "predictive",
-                       plots = FALSE, quiet = TRUE))
+  pred <- show(analyze(clean, blocks = ANALYSIS_BLOCKS, outcome = STUDY$outcome, 
+    plots = FALSE, quiet = TRUE, control = analysis_control(goal = "predictive")))
 
   cat("\n  methods run :", paste(names(pred$models), collapse = ", "), "\n")
 
   step("A single method, on demand")
 
-  one <- show(analyze(clean, blocks = ANALYSIS_BLOCKS, outcome = STUDY$outcome,
-                      methods = "association", plots = FALSE, quiet = TRUE))
+  one <- show(analyze(clean, blocks = ANALYSIS_BLOCKS, outcome = STUDY$outcome, 
+    plots = FALSE, quiet = TRUE, control = analysis_control(methods = "association")))
 
   cat("\n  methods run :", paste(names(one$models), collapse = ", "), "\n")
 
@@ -2354,8 +2354,8 @@ if (section(12, "The effort dial: buying rigour with time")) {
 
   step("Overriding a single piece")
 
-  custom <- show(analyze(clean, blocks = ANALYSIS_BLOCKS, STUDY$outcome, effort = "fast",
-                         resample = 20, plots = FALSE, quiet = TRUE))
+  custom <- show(analyze(clean, blocks = ANALYSIS_BLOCKS, STUDY$outcome, effort = "fast", 
+    plots = FALSE, quiet = TRUE, control = analysis_control(resample = 20)))
 
   cat("\n  resampling ran despite effort = 'fast': ",
       isTRUE(custom$diagnostics$resampling$available), "\n", sep = "")
@@ -2608,9 +2608,9 @@ if (section(17, "Reading the result one layer at a time")) {
        " together would hand the whole budget to whichever block has the",
        " most columns, and a small clinical block would vanish.")
 
-  tight <- show(analyze(clean, blocks = ANALYSIS_BLOCKS, STUDY$outcome, max_features = 8,
-                        min_per_block = 2, effort = "fast",
-                        plots = FALSE, quiet = TRUE), print_it = FALSE)
+  tight <- show(analyze(clean, blocks = ANALYSIS_BLOCKS, STUDY$outcome, effort = "fast", 
+    plots = FALSE, quiet = TRUE, control = analysis_control(max_features = 8, 
+        min_per_block = 2)), print_it = FALSE)
 
   show(tight$data$screening$allocation)
 
@@ -2688,8 +2688,8 @@ if (section(18, "How much to trust any of this")) {
 
   step("How many relationships appear when there is nothing to find")
 
-  calibrated <- show(analyze(clean, blocks = ANALYSIS_BLOCKS, STUDY$outcome, effort = "fast",
-                             permutations = 15, plots = FALSE, quiet = TRUE),
+  calibrated <- show(analyze(clean, blocks = ANALYSIS_BLOCKS, STUDY$outcome, effort = "fast", 
+    plots = FALSE, quiet = TRUE, control = analysis_control(permutations = 15)),
                      print_it = FALSE)
 
   cal <- calibrated$diagnostics$null_calibration
@@ -2710,9 +2710,8 @@ if (section(18, "How much to trust any of this")) {
 
   step("Variables that should not appear, and did")
 
-  controls <- show(analyze(clean, blocks = ANALYSIS_BLOCKS, STUDY$outcome, effort = "fast",
-                           negative_controls = STUDY$negative_controls,
-                           plots = FALSE, quiet = TRUE),
+  controls <- show(analyze(clean, blocks = ANALYSIS_BLOCKS, STUDY$outcome, effort = "fast", 
+    plots = FALSE, quiet = TRUE, assume = analysis_assumptions(negative_controls = STUDY$negative_controls)),
                    print_it = FALSE)$diagnostics$negative_controls
 
   show(controls$notes)
@@ -2720,8 +2719,8 @@ if (section(18, "How much to trust any of this")) {
 
   step("Does the relationship hold in every subgroup?")
 
-  hetero <- show(analyze(clean, blocks = ANALYSIS_BLOCKS, STUDY$outcome, effort = "fast",
-                         heterogeneity = "sex", plots = FALSE, quiet = TRUE),
+  hetero <- show(analyze(clean, blocks = ANALYSIS_BLOCKS, STUDY$outcome, effort = "fast", 
+    plots = FALSE, quiet = TRUE, assume = analysis_assumptions(heterogeneity = "sex")),
                  print_it = FALSE)$diagnostics$heterogeneity
 
   if (isTRUE(hetero$available)) {
@@ -2773,8 +2772,8 @@ if (section(19, "Reproducibility guarantees")) {
   set.seed(123); invisible(check_data(study)); after_check <- runif(3)
 
   set.seed(123)
-  invisible(analyze(clean, blocks = ANALYSIS_BLOCKS, STUDY$outcome, plots = FALSE, quiet = TRUE,
-                    bootstrap = 30))
+  invisible(analyze(clean, blocks = ANALYSIS_BLOCKS, STUDY$outcome, plots = FALSE, 
+    quiet = TRUE, control = analysis_control(bootstrap = 30)))
   after_analyze <- runif(3)
 
   cat("  after check_data() : ", identical(before, after_check), "\n", sep = "")
@@ -2792,8 +2791,10 @@ if (section(19, "Reproducibility guarantees")) {
 
   step("Does the same input give the same answer?")
 
-  a <- analyze(clean, blocks = ANALYSIS_BLOCKS, STUDY$outcome, plots = FALSE, quiet = TRUE, bootstrap = 30)
-  b <- analyze(clean, blocks = ANALYSIS_BLOCKS, STUDY$outcome, plots = FALSE, quiet = TRUE, bootstrap = 30)
+  a <- analyze(clean, blocks = ANALYSIS_BLOCKS, STUDY$outcome, plots = FALSE, 
+    quiet = TRUE, control = analysis_control(bootstrap = 30))
+  b <- analyze(clean, blocks = ANALYSIS_BLOCKS, STUDY$outcome, plots = FALSE, 
+    quiet = TRUE, control = analysis_control(bootstrap = 30))
 
   same <- identical(
     vapply(a$evidence, function(e) e$evidence_score, numeric(1)),
@@ -3008,8 +3009,8 @@ if (section(20, "When blocks do not share people")) {
   cat("\n")
 
   msg2 <- tryCatch(
-    analyze(prepped, "y", methods = "association", effort = "fast",
-            plots = FALSE, quiet = TRUE),
+    analyze(prepped, "y", effort = "fast", plots = FALSE, quiet = TRUE, 
+    control = analysis_control(methods = "association")),
     error = conditionMessage)
 
   cat(paste0("  | ", strsplit(msg2, "\n")[[1]]), sep = "\n")
@@ -3188,13 +3189,12 @@ if (section(21, "check_dag(): what your adjustment is actually worth")) {
 
   demo <- .cmo_dag_demo()
 
-  plain <- show(analyze(demo$prep, "disease", covariates = "age",
-                        methods = "association", effort = "fast",
-                        plots = FALSE, quiet = TRUE), print_it = FALSE)
+  plain <- show(analyze(demo$prep, "disease", covariates = "age", effort = "fast", 
+    plots = FALSE, quiet = TRUE, control = analysis_control(methods = "association")), print_it = FALSE)
 
-  audited <- show(analyze(demo$prep, "disease", covariates = "age",
-                          dag = demo$structure, methods = "association",
-                          effort = "fast", plots = FALSE, quiet = TRUE),
+  audited <- show(analyze(demo$prep, "disease", covariates = "age", effort = "fast", 
+    plots = FALSE, quiet = TRUE, assume = analysis_assumptions(dag = demo$structure), 
+    control = analysis_control(methods = "association")),
                   print_it = FALSE)
 
   cat("\n  Without a diagram, identifiable is unknown for every edge:\n")
@@ -3220,10 +3220,9 @@ if (section(21, "check_dag(): what your adjustment is actually worth")) {
 
   step("Adjusting for the mediator, and being told")
 
-  harmful <- show(analyze(demo$prep, "disease",
-                          covariates = c("age", "inflammation"),
-                          dag = demo$structure, methods = "association",
-                          effort = "fast", plots = FALSE, quiet = TRUE),
+  harmful <- show(analyze(demo$prep, "disease", covariates = c("age", "inflammation"), 
+    effort = "fast", plots = FALSE, quiet = TRUE, assume = analysis_assumptions(dag = demo$structure), 
+    control = analysis_control(methods = "association")),
                   print_it = FALSE)
 
   target <- Filter(function(e) identical(e$source, "protein"),
@@ -3870,9 +3869,9 @@ if (section(26, "hypothesis(): stating something that could be wrong")) {
 
   demo <- .cmo_dag_demo()
 
-  identified <- analyze(demo$prep, "disease", covariates = "age",
-                        dag = demo$structure, methods = "association",
-                        effort = "fast", plots = FALSE, quiet = TRUE)
+  identified <- analyze(demo$prep, "disease", covariates = "age", effort = "fast", 
+    plots = FALSE, quiet = TRUE, assume = analysis_assumptions(dag = demo$structure), 
+    control = analysis_control(methods = "association"))
 
   show(hypothesis(identified, "protein"))
 

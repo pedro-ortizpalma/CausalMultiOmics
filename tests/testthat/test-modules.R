@@ -35,8 +35,8 @@ cmo_module_data <- function(n = 250, seed = 41) {
 }
 
 cmo_modules <- function() {
-  analyze(cmo_module_data(), "y", methods = "association", effort = "fast",
-          plots = FALSE, quiet = TRUE)$modules
+  analyze(cmo_module_data(), "y", effort = "fast", plots = FALSE, 
+    quiet = TRUE, control = analysis_control(methods = "association"))$modules
 }
 
 # =============================================================================
@@ -348,8 +348,8 @@ test_that("a dataset with no modules says so plainly", {
 
   prep <- preprocess(obj, check_data(obj), plots = FALSE, quiet = TRUE)
 
-  res <- analyze(prep, "y", methods = "association", effort = "fast",
-                 plots = FALSE, quiet = TRUE)
+  res <- analyze(prep, "y", effort = "fast", plots = FALSE, quiet = TRUE, 
+    control = analysis_control(methods = "association"))
 
   expect_equal(nrow(res$modules$modules), 0)
   expect_match(res$modules$notes[1], "moved together", fixed = TRUE)
@@ -363,8 +363,8 @@ test_that("a dataset with no modules says so plainly", {
 
 test_that("the result carries the modules and the log names them", {
 
-  res <- analyze(cmo_module_data(), "y", methods = "association",
-                 effort = "fast", plots = FALSE, quiet = TRUE)
+  res <- analyze(cmo_module_data(), "y", effort = "fast", plots = FALSE, 
+    quiet = TRUE, control = analysis_control(methods = "association"))
 
   expect_s3_class(res$modules, "ModuleGraph")
   expect_true(any(grepl("Modules:", res$logs)))
@@ -373,8 +373,8 @@ test_that("the result carries the modules and the log names them", {
 
 test_that("the module figure is drawn alongside the rest", {
 
-  res <- analyze(cmo_module_data(), "y", methods = "association",
-                 effort = "fast", plots = TRUE, quiet = TRUE)
+  res <- analyze(cmo_module_data(), "y", effort = "fast", plots = TRUE, 
+    quiet = TRUE, control = analysis_control(methods = "association"))
 
   expect_false(is.null(res$plots$modules))
   expect_no_error(print(res$plots$modules))
