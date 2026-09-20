@@ -4,15 +4,22 @@ Version: 0.1.1
 Authors@R:
     person("Pedro", "Ortiz-Palma", , "ortiz9009@gmail.com",
            role = c("aut", "cre"))
-Description: Tools for auditing multi-block datasets before integration.
-    Data blocks of any modality (omics, imaging, clinical, environmental)
-    are collected into a single container, screened for structural and
-    distributional problems, and profiled block by block. A battery of
-    candidate transformations is benchmarked for each block and an
-    automatic preprocessing recipe is derived from the result, together
-    with a quality score, quality-control checks, diagnostic plots and a
-    self-contained HTML report.
+Description: Produces a quantified causal hypothesis from multi-block data
+    rather than a single fitted model. Blocks of any modality (omics,
+    imaging, clinical, environmental) are audited, profiled and preprocessed
+    from an explicit recipe that can be replayed on a second cohort. Several
+    evidence generators then run against the preprocessed data and are
+    merged into one scored directed graph, in which every relationship
+    records the identification strategy that would license reading it
+    causally, the assumptions it rests on, how much of the data behind it
+    was measured rather than imputed, whether it survives resampling, and
+    what would settle it. A user-supplied causal diagram can be audited, so
+    that adjusting for a mediator or a collider is reported rather than
+    rewarded. Results are written as a self-contained HTML report intended
+    for a reader who is not a statistician.
 License: MIT + file LICENSE
+URL: https://github.com/ortiz9009/CausalMultiOmics
+BugReports: https://github.com/ortiz9009/CausalMultiOmics/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Imports:

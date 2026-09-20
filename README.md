@@ -1,22 +1,29 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# CausalMultiOmics
+# CausalMultiOmics <img src="man/figures/logo.png" align="right" height="130" alt="" />
 
 <!-- badges: start -->
 
 <!-- badges: end -->
 
-CausalMultiOmics audits multi-block datasets before they are integrated.
+Most analysis packages fit a model and hand it back. This one does not,
+because “the best model” is a poor answer to a biological question: the
+model that predicts best is usually the one leaning hardest on whatever
+was measured most accurately, which is a fact about the laboratory
+rather than about the disease.
+
+What comes out instead is a scored directed graph in which every arrow
+carries its own evidence — which methods saw it, how large it was, how
+precisely it was measured — and, the part that matters, what would have
+to be true for it to mean what it appears to mean.
 
 Data blocks of any modality — omics, imaging, clinical, environmental,
-wearable devices — are collected into a single container and profiled
-block by block: structural problems, missing-value patterns,
-distributional shape, feature quality and multivariate structure. For
-every block a battery of candidate transformations is benchmarked and an
-automatic preprocessing recipe is derived from the result, together with
-a quality score, quality-control checks, diagnostic plots and a
-self-contained HTML report.
+wearable devices — are audited, profiled and preprocessed from an
+explicit recipe that can be replayed on a second cohort. Nine evidence
+generators then run against the result and are merged into one graph,
+which is read at the level of a variable, of a module, and of a whole
+block.
 
 Nothing is modified in place. `check_data()` never touches its input;
 every finding is returned inside a single object.
@@ -28,6 +35,21 @@ CausalMultiOmics is not on CRAN yet. Install it from a local checkout:
 ``` r
 # install.packages("devtools")
 devtools::install("path/to/CausalMultiOmics")
+```
+
+The package itself imports base R only, so installation is trivial
+anywhere. Every modelling dependency sits in `Suggests`, which has a
+cost worth knowing about: a thin installation runs three of the nine
+generators rather than all nine, and because the evidence score weights
+agreement between methods, it does not return less evidence — it returns
+evidence biased downwards.
+
+`cmo_setup()` answers that before you analyse anything rather than
+after:
+
+``` r
+cmo_setup()          # what this machine can run, and what it is missing
+cmo_setup(install = TRUE)   # install the rest
 ```
 
 ## Example
@@ -131,7 +153,7 @@ clean
 #> Removed samples:               0
 #> Removed features:              0
 #> Plots:                         0
-#> Runtime:                       0.03 s
+#> Runtime:                       0.07 s
 ```
 
 ## Building evidence
@@ -154,7 +176,9 @@ results
 #> Samples:                       18
 #> Features analysed:             5 of 5
 #> 
-#> Methods run:                   7
+#> Methods run:                   7 of 9
+#> Methods skipped:               2 (2 not applicable to this design)
+#> 
 #> Relationships found:           7
 #> After integration:             7
 #> With temporal precedence:      0
@@ -162,7 +186,7 @@ results
 #> Causal paths:                  2
 #> Plots:                         0
 #> Tables:                        15
-#> Runtime:                       0.94 s
+#> Runtime:                       1.48 s
 ```
 
 Every relationship carries the identification strategy that would
@@ -315,6 +339,25 @@ and no CDN dependency:
 ``` r
 report(validation, file = "validation_report.html")
 ```
+
+## Getting the results out
+
+Every object answers `as.data.frame()`, so nothing here has to be taken
+apart by hand to reach a plot or a pipeline.
+
+``` r
+as.data.frame(results)            # one row per relationship
+as.data.frame(results, all = TRUE) # every column, not just the readable ones
+as.data.frame(validation)         # one row per block
+
+cmo_plots(results)                # what figures exist
+plot(results, "circos")           # draw one
+
+export_graph(results, "graph.graphml")   # Cytoscape, Gephi
+```
+
+`summary()` returns the summary rather than printing it, so it can be
+stored, looped over, or printed twice without surprises.
 
 ## Development
 

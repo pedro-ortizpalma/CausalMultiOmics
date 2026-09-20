@@ -25,3 +25,8 @@ Rplots.pdf
 # Built vignettes land here; the sources in vignettes/ are what is tracked.
 doc/
 Meta/
+
+# Knitted from the .Rmd beside it, and 1.7 MB. guide-prose.html in the same
+# folder is a source file and stays tracked; this one is output, and the
+# copy worth keeping lives in docs/ where Pages can serve it.
+dev/analisis-ejemplo.html
