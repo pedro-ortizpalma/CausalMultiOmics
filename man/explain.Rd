@@ -32,8 +32,13 @@ x <- load_data(assays = list(block = tr), metadata = meta)
 prep <- preprocess(x, check_data(x), plots = FALSE, quiet = TRUE)
 
 result <- analyze(prep, outcome = "y", effort = "fast",
-                  plots = FALSE, quiet = TRUE)
+                  plots = FALSE, quiet = TRUE,
+                  control = analysis_control(methods = c("association", "conditional")))
 
 explain(result, "G1")
 
+
+}
+\seealso{
+\code{\link{analyze}}, \code{\link{hypothesis}}, \code{\link{sensitivity}}, \code{\link{counterfactual}}
 }

@@ -3203,9 +3203,27 @@
 
   metadata <- object$metadata
 
+  # Blocks carry their identifiers in row names, so a user who follows that
+  # convention for the metadata too is doing the natural thing. Accept it:
+  # the identifiers are there, only under a different name. Positional row
+  # names ("1", "2", ...) are not identifiers and still count as absent.
+
+  if (!("sample_id" %in% colnames(metadata)) && .has_sample_ids(metadata)) {
+
+    metadata$sample_id <- rownames(metadata)
+
+    warnings <- c(warnings, paste0(
+      "Metadata has no 'sample_id' column; its row names were used as ",
+      "identifiers. Add metadata$sample_id <- rownames(metadata) to make ",
+      "this explicit."))
+
+  }
+
   if (!("sample_id" %in% colnames(metadata))) {
 
-    errors <- c(errors, "Metadata does not contain a 'sample_id' column.")
+    errors <- c(errors, paste0(
+      "Metadata does not contain a 'sample_id' column. Columns present: ",
+      paste(colnames(metadata), collapse = ", "), "."))
 
     return(list(errors = errors, warnings = warnings,
                 metadata_only = metadata_only, block_only = block_only))
@@ -3244,6 +3262,22 @@
     warnings <- c(warnings, sprintf(
       "%d sample(s) present in metadata but absent from data blocks.", length(metadata_only)
     ))
+
+  }
+
+  # No identifier in common is not partial coverage: it is the wrong labels on
+  # one side, and every downstream step would run with no metadata at all.
+  # Reported as an error so that valid = FALSE stops the pipeline here.
+
+  if (length(block_ids) > 0 && length(intersect(block_ids, metadata_ids)) == 0) {
+
+    errors <- c(errors, sprintf(paste0(
+      "No identifier in the metadata matches any data block. ",
+      "Metadata: %s. Blocks: %s. ",
+      "Both sides must use the same labels; check for a prefix, a type ",
+      "mismatch (\"1\" vs 1) or trailing whitespace."),
+      paste(utils::head(metadata_ids, 3), collapse = ", "),
+      paste(utils::head(block_ids, 3), collapse = ", ")))
 
   }
 
@@ -3527,13 +3561,34 @@
 #' returned inside a single \code{CMOValidation} object.
 #'
 #' @param object A \code{MultiOmicsData} object.
+#' @param plots Record the diagnostic figures inside the returned object.
+#'   They cost a few percent of the runtime but around 90\% of the object's
+#'   size, so \code{FALSE} is worth it when the audit is being stored or run
+#'   over many blocks. \code{\link{cmo_plots}} lists what was kept and
+#'   \code{\link{plot.CMOValidation}} draws it.
 #'
 #' @return
 #' A \code{CMOValidation} object.
 #'
+#'
+#' @seealso \code{\link{load_data}}, \code{\link{preprocess}}, \code{\link{report}}, \code{\link{as.data.frame.CMOValidation}}
+#'
+#' @examples
+#' data <- simulate_data(n = 80, blocks = list(main = 8), seed = 1)
+#'
+#' audit <- check_data(data)
+#' audit
+#'
+#' # The block-level findings as a table.
+#' as.data.frame(audit)
+#'
+#' # Nothing is raised: read the verdict and act on it.
+#' audit$valid
+#' audit$errors
+#'
 #' @export
 
-check_data <- function(object) {
+check_data <- function(object, plots = TRUE) {
 
   started <- Sys.time()
 
@@ -3770,10 +3825,19 @@ check_data <- function(object) {
   # Plots
   # ===========================================================================
 
-  validation$plots <- .safe_try(
-    .build_plots(object$assays, diagnostics, transformations, overlap),
-    validation$plots
-  )
+  # The figures are 4-6% of the runtime but around 90% of the returned
+  # object: 25 of the 27 MB at 1600 features. Skipping them is therefore a
+  # memory decision, not a speed one, and it matters when an audit is run
+  # over many blocks or stored alongside a cohort.
+
+  if (isTRUE(plots)) {
+
+    validation$plots <- .safe_try(
+      .build_plots(object$assays, diagnostics, transformations, overlap),
+      validation$plots
+    )
+
+  }
 
   # ===========================================================================
   # Tables

@@ -75,4 +75,8 @@ analysis_assumptions(
   reliability = c(bmi = 0.95)
 )
 
+
+}
+\seealso{
+\code{\link{analyze}}, \code{\link{analysis_control}}, \code{\link{check_dag}}
 }

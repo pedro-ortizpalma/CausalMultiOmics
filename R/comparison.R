@@ -43,6 +43,8 @@
 #'
 #' @return A \code{CMOComparison}.
 #'
+#' @seealso \code{\link{analyze}}, \code{\link{sensitivity}}
+#'
 #' @examples
 #' \donttest{
 #' one <- simulate_data(n = 200, blocks = list(a = c("x", "z")),
@@ -60,6 +62,7 @@
 #'
 #' compare_results(fit(one), fit(two))
 #' }
+#'
 #'
 #' @export
 compare_results <- function(a, b, names = c("first", "second"),

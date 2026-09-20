@@ -2,7 +2,7 @@
 % Please edit documentation in R/methods.R
 \name{summary.MultiOmicsData}
 \alias{summary.MultiOmicsData}
-\title{Print everything stored in a MultiOmicsData object}
+\title{Assemble the full summary of a MultiOmicsData object}
 \usage{
 \method{summary}{MultiOmicsData}(object, ...)
 }
@@ -12,9 +12,11 @@
 \item{...}{Ignored.}
 }
 \value{
-The object, invisibly.
+An object of class \code{summary.MultiOmicsData}.
 }
 \description{
-Walks through every section the object carries. Use
-\code{print()} for a one-screen overview instead.
+Returns the summary rather than printing it, so that it can be stored,
+captured with \code{utils::capture.output()} or looped over. Printing is
+the job of \code{print.summary.MultiOmicsData()}, which the console calls for you
+when you type \code{summary(x)}.
 }

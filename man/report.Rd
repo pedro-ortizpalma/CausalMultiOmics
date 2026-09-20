@@ -17,3 +17,16 @@ The object, invisibly.
 \description{
 Generic for turning an analysis object into a human-readable report.
 }
+\examples{
+data <- simulate_data(n = 60, blocks = list(main = 6), seed = 1)
+audit <- check_data(data)
+
+file <- tempfile(fileext = ".html")
+report(audit, file = file)
+file.exists(file)
+unlink(file)
+
+}
+\seealso{
+\code{\link{check_data}}, \code{\link{preprocess}}, \code{\link{analyze}}, \code{\link{export_graph}}
+}

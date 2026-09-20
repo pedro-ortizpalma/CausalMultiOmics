@@ -70,4 +70,8 @@ x <- load_data(
   )
 )
 
+
+}
+\seealso{
+\code{\link{check_data}}, \code{\link{simulate_data}}, \code{\link{preprocess}}
 }

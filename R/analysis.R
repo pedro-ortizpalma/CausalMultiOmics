@@ -886,6 +886,21 @@ observation <- function(source, target, quantity, estimate,
 # entry here.
 # =============================================================================
 
+#' Is a package installed, without loading it?
+#'
+#' `requireNamespace()` executes the package's load code. Probing nine
+#' optional dependencies with it pulls all nine into the session, and a
+#' package with a broken binary aborts the R process instead of returning
+#' FALSE. Checking for an installed description is enough to decide whether a
+#' generator can run; the generator itself loads what it needs.
+#'
+#' @keywords internal
+#' @noRd
+
+.pkg_available <- function(pkg) {
+  vapply(pkg, function(p) nzchar(system.file(package = p)), logical(1))
+}
+
 #' The registry of evidence generators
 #' @keywords internal
 
@@ -2805,12 +2820,40 @@ observation <- function(source, target, quantity, estimate,
 #' act: one that moved your generator would silently change every simulation
 #' you ran next.
 #'
+#'
+#' @section What the returned object contains:
+#' The result carries individual-level data, by design: the traceability the
+#' package aims for requires that every number can be traced back to the rows
+#' it came from. A \code{PreprocessingResult} holds two full copies of the
+#' cohort, the input and the transformed version, so that
+#' \code{apply_preprocessing()} can replay the fitted models on a new cohort.
+#' A \code{CMOResult} holds the outcome value of every subject. Both are
+#' therefore identifiable data: check with whoever governs your dataset before
+#' emailing one of these objects or committing a \code{.rds} of it to a
+#' repository.
 #' @return A \code{CMOResult} object, or a \code{CMOMultiResult} when several
 #'   outcomes were named.
 #'
 #' @seealso \code{\link{analysis_assumptions}}, \code{\link{analysis_control}},
 #'   \code{\link{preprocess}}
 #'
+#'
+#' @examples
+#' data <- simulate_data(n = 80, blocks = list(main = 8), seed = 1)
+#' ready <- preprocess(data, check_data(data), plots = FALSE, quiet = TRUE)
+#'
+#' fit <- analyze(ready, outcome = "y", effort = "fast", plots = FALSE,
+#'                quiet = TRUE,
+#'                control = analysis_control(methods = c("association", "conditional")))
+#' fit
+#'
+#' # The findings as a table, ordered by evidence.
+#' head(as.data.frame(fit))
+#'
+#' # Only the methods that need no extra package, for a quick pass.
+#' analyze(ready, outcome = "y", effort = "fast", plots = FALSE, quiet = TRUE,
+#'         control = analysis_control(methods = c("association",
+#'                                                "conditional")))
 #' @export
 
 analyze <- function(object,
@@ -3143,6 +3186,11 @@ analyze <- function(object,
   models <- list()
   logs <- character()
 
+  # Structured record of what did not run and why. `logs` is prose for the
+  # summary; this is what print() and the report read to say how much of the
+  # engine was actually used.
+  skipped <- list()
+
   for (name in wanted) {
 
     entry <- registry[[name]]
@@ -3151,18 +3199,20 @@ analyze <- function(object,
 
       logs <- c(logs, sprintf("%s: skipped, not applicable to a %s design.",
                               name, design$type))
+      skipped[[name]] <- list(reason = "design", detail = design$type)
       next
 
     }
 
     missing_pkgs <- entry$requires[
-      !vapply(entry$requires, requireNamespace, logical(1), quietly = TRUE)
+      !.pkg_available(entry$requires)
     ]
 
     if (length(missing_pkgs) > 0) {
 
       logs <- c(logs, sprintf("%s: skipped, package(s) %s not installed.",
                               name, paste(missing_pkgs, collapse = ", ")))
+      skipped[[name]] <- list(reason = "packages", detail = missing_pkgs)
       next
 
     }
@@ -3174,6 +3224,7 @@ analyze <- function(object,
     if (is.null(edges)) {
 
       logs <- c(logs, sprintf("%s: failed and produced no evidence.", name))
+      skipped[[name]] <- list(reason = "failed", detail = character())
       next
 
     }
@@ -3654,6 +3705,11 @@ analyze <- function(object,
 
   result$performance <- list(
     generators_run = length(models),
+    generators_considered = length(wanted),
+    generators_skipped = skipped,
+    generators_missing_packages = sort(unique(unlist(
+      lapply(skipped[vapply(skipped, function(s) identical(s$reason, "packages"),
+                            logical(1))], `[[`, "detail")))),
     edges_generated = length(all_edges),
     edges_integrated = length(evidence),
     features_screened = screen$tested,
@@ -3774,6 +3830,24 @@ analyze <- function(object,
 #'   recomputed evidence score, between 0 and 1.
 #'
 #' @return The \code{CMOResult} with biological support attached.
+#'
+#'
+#' @seealso \code{\link{analyze}}, \code{\link{explain}}
+#'
+#' @examples
+#' data <- simulate_data(n = 80, blocks = list(main = 8), seed = 1)
+#' ready <- preprocess(data, check_data(data), plots = FALSE, quiet = TRUE)
+#' fit <- analyze(ready, outcome = "y", effort = "fast", plots = FALSE,
+#'                quiet = TRUE,
+#'                control = analysis_control(methods = c("association", "conditional")))
+#'
+#' # A local export keeps the run reproducible: the database version is
+#' # whatever this table came from, and it is stored on the edges.
+#' support <- data.frame(source = "main_1", target = "y",
+#'                       support = 0.8, database = "local export",
+#'                       stringsAsFactors = FALSE)
+#'
+#' annotate_evidence(fit, support)
 #'
 #' @export
 
@@ -5216,6 +5290,25 @@ hypothesis <- function(object, feature = NULL) {
 #'   same scale as the ones the claim was made on.
 #'
 #' @return The hypothesis, with its \code{replication} slot filled in.
+#'
+#'
+#' @seealso \code{\link{hypothesis}}, \code{\link{analyze}}, \code{\link{explain}}
+#'
+#' @examples
+#' data <- simulate_data(n = 80, blocks = list(main = 8), seed = 1)
+#' ready <- preprocess(data, check_data(data), plots = FALSE, quiet = TRUE)
+#' fit <- analyze(ready, outcome = "y", effort = "fast", plots = FALSE,
+#'                quiet = TRUE,
+#'                control = analysis_control(methods = c("association", "conditional")))
+#'
+#' claim <- hypothesis(fit)
+#'
+#' # A second cohort, put on the same scale as the first rather than
+#' # preprocessed on its own terms.
+#' newdata <- simulate_data(n = 60, blocks = list(main = 8), seed = 2)
+#' newready <- apply_preprocessing(newdata, ready, quiet = TRUE)
+#'
+#' test_hypothesis(claim, newready)
 #'
 #' @export
 test_hypothesis <- function(hypothesis, object) {
@@ -7733,6 +7826,8 @@ test_hypothesis <- function(hypothesis, object) {
 #'
 #' @return A list, printed as a readable account.
 #'
+#' @seealso \code{\link{analyze}}, \code{\link{hypothesis}}, \code{\link{sensitivity}}, \code{\link{counterfactual}}
+#'
 #' @examples
 #' tr <- data.frame(
 #'   G1 = rnorm(40), G2 = rnorm(40),
@@ -7745,9 +7840,11 @@ test_hypothesis <- function(hypothesis, object) {
 #' prep <- preprocess(x, check_data(x), plots = FALSE, quiet = TRUE)
 #'
 #' result <- analyze(prep, outcome = "y", effort = "fast",
-#'                   plots = FALSE, quiet = TRUE)
+#'                   plots = FALSE, quiet = TRUE,
+#'                   control = analysis_control(methods = c("association", "conditional")))
 #'
 #' explain(result, "G1")
+#'
 #'
 #' @export
 
@@ -8258,6 +8355,8 @@ print.CMOExplanation <- function(x, ...) {
 #'
 #' @return A \code{CMOCounterfactual} object, printed as readable statements.
 #'
+#' @seealso \code{\link{analyze}}, \code{\link{explain}}, \code{\link{as.data.frame.CMOCounterfactual}}
+#'
 #' @examples
 #' set.seed(1)
 #' n <- 60
@@ -8272,9 +8371,11 @@ print.CMOExplanation <- function(x, ...) {
 #'
 #' prep <- preprocess(x, check_data(x), plots = FALSE, quiet = TRUE)
 #' res <- analyze(prep, outcome = "HDL", effort = "fast",
-#'                plots = FALSE, quiet = TRUE)
+#'                plots = FALSE, quiet = TRUE,
+#'                control = analysis_control(methods = c("association", "conditional")))
 #'
 #' counterfactual(res, modifiable = "APOA1")
+#'
 #'
 #' @export
 
@@ -9581,18 +9682,25 @@ print.CMOCounterfactual <- function(x, ...) {
 #'
 #' @return A \code{CMODagCheck} object, printed as a verdict with reasons.
 #'
+#' @seealso \code{\link{analyze}}, \code{\link{analysis_assumptions}}
+#'
 #' @examples
 #' structure <- data.frame(
 #'   from = c("age", "age", "protein", "inflammation"),
 #'   to   = c("protein", "disease", "inflammation", "disease")
 #' )
 #'
-#' # Adjusting for age closes the backdoor path.
-#' check_dag(structure, "protein", "disease", adjusted = "age")
+#' # Reading the diagram needs dagitty, which is a suggested dependency.
+#' if (requireNamespace("dagitty", quietly = TRUE)) {
 #'
-#' # Adjusting for the mediator removes the effect being measured.
-#' check_dag(structure, "protein", "disease",
-#'           adjusted = c("age", "inflammation"))
+#'   # Adjusting for age closes the backdoor path.
+#'   check_dag(structure, "protein", "disease", adjusted = "age")
+#'
+#'   # Adjusting for the mediator removes the effect being measured.
+#'   check_dag(structure, "protein", "disease",
+#'             adjusted = c("age", "inflammation"))
+#'
+#' }
 #'
 #' @export
 check_dag <- function(dag, exposure, outcome, adjusted = character()) {

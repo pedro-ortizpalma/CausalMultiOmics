@@ -74,6 +74,8 @@
 #' @return
 #' A MultiOmicsData object.
 #'
+#' @seealso \code{\link{check_data}}, \code{\link{simulate_data}}, \code{\link{preprocess}}
+#'
 #' @examples
 #' tr <- data.frame(
 #'   Gene1 = rnorm(10),
@@ -93,6 +95,7 @@
 #'     proteomics = pr
 #'   )
 #' )
+#'
 #'
 #' @export
 

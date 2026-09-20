@@ -1,0 +1,854 @@
+---
+title: "Un análisis real con CausalMultiOmics"
+subtitle: "Cohorte de prevención cardiovascular: de tres bloques de datos a una afirmación que podría ser falsa"
+date: "Generado el `r format(Sys.Date(), '%d de %B de %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: false
+    toc_depth: 2
+    number_sections: true
+    df_print: kable
+    theme: flatly
+    highlight: tango
+    fig_width: 8
+    fig_height: 5.5
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = FALSE, comment = "#>", warning = FALSE, message = FALSE,
+  fig.align = "center", dpi = 110, out.width = "100%"
+)
+options(width = 100)
+
+library(CausalMultiOmics)
+
+# Este documento usa anadidos de la version 0.1.1 (cmo_setup, plot, summary
+# que devuelve objeto, as.data.frame, outcome_name, check_data(plots=)). Si la
+# copia CARGADA es anterior, el fallo aparece varias celdas mas abajo como
+# "no se pudo encontrar la funcion", que no dice nada util. Mejor aqui.
+.necesaria <- "0.1.1"
+.instalada <- utils::packageVersion("CausalMultiOmics")
+
+if (.instalada < .necesaria) {
+  stop(sprintf(paste0(
+    "\n\nEste documento necesita CausalMultiOmics >= %s, y la copia cargada es %s.",
+    "\nLo que R ha cargado es la version INSTALADA en tu biblioteca, no el codigo",
+    "\nfuente del repositorio. Reinstala y reinicia R:",
+    "\n",
+    "\n    devtools::install()        # o Ctrl+Shift+B en RStudio",
+    "\n",
+    "\nO, para probar sin instalar nada:",
+    "\n",
+    "\n    devtools::load_all()       # desde la raiz del paquete",
+    "\n"),
+    .necesaria, .instalada), call. = FALSE)
+}
+```
+
+Este documento recorre el paquete entero como lo haría alguien que tiene tres
+bloques ómicos y una pregunta clínica. No es la *vignette* —esa explica por qué
+el paquete está diseñado así— sino el cuaderno de un análisis: cada función
+pública, cada modo de analizar, las figuras que se producen y qué hay dentro de
+los objetos que devuelve.
+
+> **Requiere CausalMultiOmics ≥ 0.1.1 instalado.** El documento usa
+> `cmo_setup()`, `plot()`, `as.data.frame()` y `outcome_name()`, que se
+> añadieron en esa versión. Si acabas de actualizar el código fuente, instálalo
+> (`devtools::install()`, o `Ctrl+Shift+B` en RStudio) y reinicia R antes de
+> ejecutarlo: `library()` carga la copia **instalada**, no el repositorio.
+
+Los datos son simulados **con una estructura causal conocida**, que declaro
+ahora para poder juzgar al final si el paquete la recuperó:
+
+```
+edad ─→ Met_TMAO ─→ Prot_IL6 ─→ evento
+  │        ↑                      ↑
+  └────────┴── imc                └── edad, ldl (efectos directos)
+```
+
+Es decir: la señal real está en un metabolito y una proteína, con la edad y el
+IMC como confusores que entran por dos caminos a la vez. El resto —24
+metabolitos y 17 proteínas— es ruido puro. Un análisis honesto debería
+encontrar la vía y no encontrar el ruido.
+
+# Antes de empezar: qué puede ejecutar esta máquina
+
+El paquete importa solo R base y deja las doce dependencias de modelado en
+`Suggests`, de modo que se instala en cualquier sitio. El precio es que en una
+instalación limpia no corren todos los generadores de evidencia. `cmo_setup()`
+lo dice antes de analizar, no después:
+
+```{r setup-check}
+cmo_setup()
+```
+
+Esto importa más de lo que parece: la puntuación de evidencia **pondera el
+acuerdo entre métodos**, así que una relación vista por un generador puntúa por
+debajo de la misma relación vista por cuatro. Un motor incompleto no da una
+respuesta más pequeña: da una respuesta sesgada a la baja.
+
+# Los datos
+
+Tres bloques y una tabla de metadatos, como salen de tres plataformas
+distintas. Los identificadores van en `row.names` de cada bloque y en la
+columna `sample_id` de los metadatos.
+
+```{r datos}
+set.seed(2024)
+n  <- 400
+id <- sprintf("CV%04d", seq_len(n))
+
+# --- confusores clínicos ----------------------------------------------------
+edad <- round(rnorm(n, 64, 9))
+sexo <- rbinom(n, 1, 0.46)
+imc  <- rnorm(n, 28, 4) + 0.02 * (edad - 64)
+tas  <- rnorm(n, 136, 16) + 0.35 * (edad - 64) + 0.6 * (imc - 28)
+ldl  <- rnorm(n, 112, 28) + 0.25 * (edad - 64)
+
+# --- la vía plantada: edad -> Met_TMAO -> Prot_IL6 -> evento ----------------
+met_tmao <- 0.55 * scale(edad)[, 1] + 0.30 * scale(imc)[, 1] + rnorm(n, 0, 0.75)
+prot_il6 <- 0.60 * met_tmao + 0.25 * scale(imc)[, 1] + rnorm(n, 0, 0.75)
+
+# --- desenlaces -------------------------------------------------------------
+lp     <- -1.1 + 0.85 * prot_il6 + 0.45 * met_tmao +
+           0.030 * (edad - 64) + 0.011 * (ldl - 112)
+evento <- rbinom(n, 1, plogis(lp))
+tiempo <- pmin(round(rexp(n, 0.02 * exp(0.45 * prot_il6)) + 1), 60)
+hdl    <- 52 - 3.2 * prot_il6 - 0.08 * (imc - 28) + rnorm(n, 0, 7)
+
+# --- los tres bloques -------------------------------------------------------
+clinica <- data.frame(edad = edad, sexo = sexo, imc = round(imc, 1),
+                      tas = round(tas), ldl = round(ldl), row.names = id)
+
+metabolomica <- as.data.frame(
+  cbind(Met_TMAO = met_tmao,
+        matrix(rnorm(n * 24), n, 24,
+               dimnames = list(NULL, sprintf("Met_%02d", 1:24)))),
+  row.names = id)
+
+# tres columnas con los defectos que trae cualquier panel real: una variable
+# por debajo del limite de deteccion, otra casi constante, y una duplicada de
+# la anterior por un problema de exportacion
+metabolomica$Met_LOD   <- 0
+metabolomica$Met_NEARC <- c(rep(1, n - 4), rnorm(4, 1, 0.01))
+metabolomica$Met_DUP   <- metabolomica$Met_01 + rnorm(n, 0, 1e-6)
+
+proteomica <- as.data.frame(
+  cbind(Prot_IL6 = prot_il6,
+        matrix(rnorm(n * 17), n, 17,
+               dimnames = list(NULL, sprintf("Prot_%02d", 1:17)))),
+  row.names = id)
+proteomica$Prot_04[sample(n, 40)] <- NA      # perdidos como en un panel real
+
+metadatos <- data.frame(sample_id = id, evento = evento, tiempo = tiempo,
+                        hdl = round(hdl, 1), stringsAsFactors = FALSE)
+```
+
+`load_data()` alinea los bloques por identificador y se queja si no puede:
+
+```{r load}
+datos <- load_data(
+  assays = list(clinica = clinica, metabolomica = metabolomica,
+                proteomica = proteomica),
+  metadata = metadatos
+)
+
+datos
+```
+
+`summary()` da el desglose por bloque. A partir de la versión 0.1.1 **devuelve**
+el resumen en lugar de imprimirlo, así que se puede guardar en una variable y
+recorrerlo; lo que se ve en la consola es idéntico porque es `print()` quien
+lo escribe.
+
+```{r load-summary}
+summary(datos)
+```
+
+## Lo que pasa si los identificadores no encajan
+
+Vale la pena ver los mensajes de error antes de necesitarlos. El paquete separa
+dos papeles: `load_data()` **importa** y `check_data()` **audita**. Por eso lo
+primero solo rechaza lo que no puede ni construir:
+
+```{r errores-carga, error = TRUE}
+# un bloque sin identificadores en row.names
+load_data(assays = list(a = data.frame(x = rnorm(10))))
+```
+
+```{r errores-carga-2}
+# metadatos con los identificadores en row.names en vez de en sample_id:
+# es la misma convención que usan los bloques, así que se aceptan con aviso
+meta_rn <- data.frame(evento = evento, row.names = id)
+aud_rn  <- check_data(load_data(list(clinica = clinica), metadata = meta_rn),
+                      plots = FALSE)
+aud_rn$warnings
+```
+
+```{r errores-carga-3}
+# metadatos que no comparten NINGÚN identificador: no es cobertura parcial,
+# son etiquetas equivocadas, y eso sí es un error de validación
+meta_mal <- data.frame(sample_id = sprintf("X%04d", 1:n), evento = evento,
+                       stringsAsFactors = FALSE)
+aud_mal  <- check_data(load_data(list(clinica = clinica), metadata = meta_mal),
+                       plots = FALSE)
+c(valido = aud_mal$valid, errores = length(aud_mal$errors))
+aud_mal$errors
+```
+
+# Auditoría: mirar antes de tocar
+
+`check_data()` no transforma nada. Mide, y propone una receta de preprocesado
+por bloque que el usuario puede aceptar o reescribir.
+
+```{r auditoria}
+auditoria <- check_data(datos)
+auditoria
+```
+
+El objeto ya trae la tabla que uno quiere leer:
+
+```{r auditoria-tabla}
+as.data.frame(auditoria)
+```
+
+Y los avisos en texto, que aquí son sobre los perdidos que planté en
+`Prot_04`:
+
+```{r auditoria-avisos}
+auditoria$warnings
+```
+
+## Las figuras de la auditoría
+
+Las figuras están **dentro** del objeto, grabadas. `cmo_plots()` dice qué hay:
+
+```{r auditoria-figuras-lista}
+cmo_plots(auditoria)
+```
+
+```{r auditoria-fig-missing, fig.height = 4.5}
+plot(auditoria, "missing_by_block")
+```
+
+```{r auditoria-fig-pca, fig.height = 5}
+plot(auditoria, "pca", block = "metabolomica")
+```
+
+```{r auditoria-fig-corr, fig.height = 5.5}
+plot(auditoria, "correlation_heatmap", block = "proteomica")
+```
+
+```{r auditoria-fig-outliers, fig.height = 5}
+plot(auditoria, "outliers", block = "clinica")
+```
+
+La última es la que decide el preprocesado: para cada variable puntúa ocho
+transformaciones candidatas y se queda con la mejor.
+
+```{r auditoria-fig-transf, fig.height = 5}
+plot(auditoria, "transformation_scores", block = "metabolomica")
+```
+
+## Una nota de rendimiento
+
+Las figuras son el 4-6 % del tiempo de `check_data()` pero cerca del 90 % del
+tamaño del objeto. Con paneles grandes —o si vas a guardar la auditoría junto a
+la cohorte— conviene omitirlas:
+
+```{r auditoria-memoria}
+sin_figuras <- check_data(datos, plots = FALSE)
+
+data.frame(
+  version = c("check_data(datos)", "check_data(datos, plots = FALSE)"),
+  MB = round(c(as.numeric(object.size(auditoria)),
+               as.numeric(object.size(sin_figuras))) / 1024^2, 1),
+  hallazgos_identicos = c(TRUE, identical(as.data.frame(sin_figuras),
+                                          as.data.frame(auditoria)))
+)
+```
+
+El tiempo de `check_data()` crece de forma **lineal** con el número de
+variables, a razón de unos 43 ms por variable con n = 300; un panel de 5 000
+variables son minutos, no horas, pero conviene saberlo antes de lanzarlo.
+
+# Preprocesado: ejecutar el plan y nada más
+
+```{r preproceso}
+listo <- preprocess(datos, auditoria)
+listo
+```
+
+La receta que se aplicó, bloque por bloque:
+
+```{r preproceso-receta}
+summary(listo$recipes$metabolomica)
+```
+
+Y la trazabilidad completa: cada paso, con las dimensiones antes y después. Esta
+tabla es la razón de existir del paquete —nada desaparece sin quedar
+registrado— y hasta la versión 0.1.1 el contador de variables eliminadas no la
+respetaba.
+
+```{r preproceso-traza}
+as.data.frame(listo)
+```
+
+Las tres columnas defectuosas que metí en el panel de metabolómica se van
+aquí, y el recuento tiene que reflejarlo. Hasta la versión 0.1.1 declaraba cero
+en este mismo caso, porque leía un campo que los modelos de filtrado no
+escriben.
+
+```{r preproceso-cuadre}
+data.frame(
+  bloque   = names(datos$assays),
+  entrada  = sapply(datos$assays, ncol),
+  salida   = sapply(listo$data$assays, ncol),
+  declaradas = sapply(names(datos$assays),
+                      function(b) length(listo$removed_features[[b]])),
+  row.names = NULL
+)
+```
+
+```{r preproceso-figura, fig.height = 5}
+plot(listo, "comparison", block = "metabolomica")
+```
+
+```{r preproceso-figura-2, fig.height = 5}
+plot(listo, "density", block = "clinica")
+```
+
+# Declarar los supuestos antes de estimar
+
+Aquí es donde un paquete causal se separa de una batería de regresiones. Los
+supuestos no son argumentos sueltos de la función de análisis: son un objeto que
+se escribe, se lee y viaja con el resultado.
+
+```{r supuestos}
+supuestos <- analysis_assumptions(
+  # el DAG que creemos: se usa para decidir qué es confusor y qué es mediador
+  dag = data.frame(
+    from = c("edad", "imc", "Met_TMAO", "Prot_IL6", "edad", "ldl"),
+    to   = c("Met_TMAO", "Met_TMAO", "Prot_IL6", "evento", "evento", "evento"),
+    stringsAsFactors = FALSE),
+
+  # lo que un clínico podría cambiar: solo sobre esto se calculan contrafactuales
+  modifiable = c("clinica", "Met_TMAO"),
+
+  # controles negativos: variables que NO deberían salir. Si salen, el
+  # procedimiento está encontrando cosas donde no hay nada
+  negative_controls = c("Met_20", "Prot_15"),
+
+  # aristas imposibles por temporalidad: nada causa la edad
+  forbidden = data.frame(from = c("evento", "Prot_IL6"),
+                         to   = c("edad", "edad"),
+                         stringsAsFactors = FALSE),
+
+  # ¿el efecto es el mismo en todos? se explora por estas variables
+  heterogeneity = c("sexo", "edad")
+)
+
+names(supuestos)
+```
+
+El control es lo otro: no *qué creemos*, sino *cómo se calcula*.
+
+```{r control}
+control <- analysis_control(
+  methods = c("association", "conditional", "mediation",
+              "elasticnet", "randomforest"),
+  goal = "causal",           # explicar, no predecir
+  bootstrap = 200,
+  max_features = 200,        # por encima de esto se criba antes de modelar
+  seed = 2024
+)
+```
+
+# El análisis
+
+```{r analisis}
+resultado <- analyze(
+  listo,
+  outcome = "evento",
+  effort  = "standard",
+  assume  = supuestos,
+  control = control
+)
+
+resultado
+```
+
+La cabecera dice cuánto del motor corrió. Desde 0.1.1 también dice cuántos
+generadores se saltaron y por qué, distinguiendo los dos motivos: los que faltan
+por no tener el paquete instalado —evitable— y los que no aplican al diseño
+detectado —correcto.
+
+```{r analisis-generadores}
+resultado$performance$generators_skipped
+```
+
+## Los hallazgos como tabla
+
+```{r analisis-tabla}
+hallazgos <- as.data.frame(resultado)
+head(hallazgos, 12)
+```
+
+Van ordenados por evidencia, así que `head()` es la parte que interesa. Los dos
+filtros que uno quiere el 90 % de las veces son argumentos:
+
+```{r analisis-tabla-filtros}
+as.data.frame(resultado, outcome_only = TRUE, min_score = 10)
+```
+
+Y las 27 columnas están si se necesitan:
+
+```{r analisis-tabla-todo}
+ncol(as.data.frame(resultado, all = TRUE))
+```
+
+Un detalle al programar contra el paquete: `resultado$outcome` **no es una
+cadena**, es una lista con `name`, `type`, `values`, `raw`, `levels` y `n`.
+Compararla con una columna de texto funciona por coerción y devuelve las filas
+equivocadas sin avisar. Para eso está el accesor:
+
+```{r outcome-name}
+outcome_name(resultado)
+class(resultado$outcome)
+```
+
+## Las figuras del resultado
+
+```{r analisis-figuras-lista}
+cmo_plots(resultado)
+```
+
+```{r analisis-fig-red, fig.height = 6.5}
+plot(resultado, "network")
+```
+
+```{r analisis-fig-scores, fig.height = 5}
+plot(resultado, "evidence_scores")
+```
+
+```{r analisis-fig-ident, fig.height = 4.5}
+plot(resultado, "identification")
+```
+
+Y el desglose de la puntuacion, que es lo que permite discutir *por que* una
+relacion puntua alto: tamano, precision, acuerdo entre metodos e
+identificacion no son el mismo argumento.
+
+```{r analisis-fig-componentes, fig.height = 5}
+plot(resultado, "score_components")
+```
+
+# Leer un hallazgo
+
+`explain()` es la salida que convierte una fila de una tabla en algo que se
+puede discutir en una reunión: qué se estimó, en qué escala, qué lo apoya, qué
+lo amenaza y qué habría que medir para zanjarlo.
+
+```{r explain-senal}
+explain(resultado, "Prot_IL6")
+```
+
+Y el contraste que vale la pena ver: uno de los controles negativos, que es
+ruido puro por construcción.
+
+```{r explain-ruido}
+# el ruido de mayor puntuacion que llego al grafo, elegido de la propia tabla
+# para que el documento no dependa de una semilla concreta
+ruidosas <- hallazgos$source[grepl("^(Met|Prot)_[0-9]{2}$", hallazgos$source)]
+contraste <- ruidosas[1]
+contraste
+
+explain(resultado, contraste)
+```
+
+# ¿Recuperó la estructura que planté?
+
+Esta es la pregunta que un documento de ejemplo debe contestar, porque es la
+única forma de saber si lo anterior sirve para algo.
+
+```{r verdad}
+verdad <- data.frame(
+  from = c("edad", "Met_TMAO", "Prot_IL6", "edad", "ldl", "imc"),
+  to   = c("Met_TMAO", "Prot_IL6", "evento", "evento", "evento", "Met_TMAO"),
+  stringsAsFactors = FALSE)
+
+encontrada <- function(a, b) {
+  hit <- hallazgos[(hallazgos$source == a & hallazgos$target == b) |
+                   (hallazgos$source == b & hallazgos$target == a), ]
+  if (!nrow(hit)) return(c(NA_real_, NA_integer_))
+  c(hit$evidence_score[1], hit$n_methods[1])
+}
+
+marcador <- cbind(verdad, t(mapply(encontrada, verdad$from, verdad$to)))
+names(marcador)[3:4] <- c("evidencia", "n_metodos")
+marcador$recuperada <- !is.na(marcador$evidencia)
+marcador
+```
+
+```{r verdad-ruido}
+# ¿y el ruido? los controles negativos y el resto de variables inventadas
+ruido <- hallazgos[grepl("^Met_[0-9]|^Prot_[0-9]", hallazgos$source), ]
+
+data.frame(
+  aristas_totales          = nrow(hallazgos),
+  del_ruido                = nrow(ruido),
+  del_ruido_con_fdr_005    = sum(ruido$fdr < 0.05, na.rm = TRUE),
+  controles_negativos_fdr  = sum(hallazgos$fdr[hallazgos$source %in%
+                                  c("Met_20", "Prot_15")] < 0.05, na.rm = TRUE),
+  con_acuerdo_de_2_o_mas   = sum(hallazgos$n_methods > 1)
+)
+```
+
+Conviene leer ese recuento sin adornarlo, así que lo escribo también en una
+frase calculada, no redactada:
+
+```{r verdad-frase}
+top4   <- head(hallazgos$source, 4)
+plantadas <- c("Prot_IL6", "Met_TMAO", "edad", "imc", "ldl")
+data.frame(
+  top4_de_la_via_plantada  = sum(top4 %in% plantadas),
+  ruido_con_fdr_005        = sum(ruido$fdr < 0.05, na.rm = TRUE),
+  ruido_total              = nrow(ruido),
+  evidencia_min_plantada   = round(min(hallazgos$evidence_score[
+                               hallazgos$source %in% plantadas]), 1),
+  evidencia_max_ruido      = round(max(ruido$evidence_score), 1),
+  metodos_max_plantada     = max(hallazgos$n_methods[
+                               hallazgos$source %in% plantadas]),
+  metodos_max_ruido        = max(ruido$n_methods)
+)
+```
+
+Merece la pena leer ese cuadro despacio, porque no dice lo que uno querría que
+dijese. **La cabeza del ranking está limpia y la cola no.** Las cuatro
+relaciones de mayor evidencia son las plantadas, y ninguna de las 32 de ruido
+cruza FDR < 0.05. Pero la más débil de las plantadas —`ldl → evento`, que
+existe por construcción— puntúa **por debajo** de la arista de ruido con mejor
+puntuación, y hay ruido visto por dos métodos.
+
+Ésa es la lectura correcta: la puntuación de evidencia ordena bien lo fuerte y
+no distingue lo débil del azar. Un efecto real pero pequeño se hunde entre el
+ruido, y ninguna cantidad de métodos lo arregla —es una limitación del tamaño
+de muestra, no del procedimiento—. Por eso el paquete imprime la escala de
+identificación, el número de métodos y el `e_value` en lugar de un único
+número: para que la decisión de a qué arista hacer caso la tome quien conoce la
+biología, no un umbral.
+
+La arista `Met_TMAO → Prot_IL6` no aparece: el motor prioriza las relaciones
+con el desenlace, así que una relación entre dos variables intermedias solo
+emerge a través de las vías.
+
+## Las vías
+
+```{r vias}
+head(resultado$tables$paths, 6)
+```
+
+Ahí está la cadena `edad → Met_TMAO → evento`, con el eslabón más débil
+identificado —que es lo que limita la credibilidad de toda la vía, no su
+promedio.
+
+# ¿Aguanta el resultado?
+
+## A través de las rutas de preprocesado
+
+La pregunta incómoda: ¿el hallazgo depende de las decisiones que tomé al
+imputar, transformar y escalar? `sensitivity()` reajusta el efecto a lo largo de
+todas las rutas defendibles.
+
+```{r sensibilidad}
+sensibilidad <- sensitivity(resultado)
+sensibilidad
+```
+
+```{r sensibilidad-tabla}
+head(as.data.frame(sensibilidad), 8)
+```
+
+`CMOSensitivity` no guarda figuras, pero la tabla las permite: lo que importa
+es si la nube de estimadores cruza el nulo.
+
+```{r sensibilidad-figura, fig.height = 4.5}
+sv <- as.data.frame(sensibilidad)
+op <- par(mar = c(4.2, 4.2, 2.5, 1))
+plot(sv$estimate, seq_len(nrow(sv)), pch = 19, col = "#2166AC80",
+     xlab = "Estimador (log-odds)", ylab = "Ruta de preprocesado",
+     main = sprintf("%s -> %s a traves de %d rutas",
+                    sv$source[1], sv$target[1], nrow(sv)))
+abline(v = 0, lty = 2, col = "#B2182B")
+points(sv$estimate[sv$is_original], which(sv$is_original), pch = 19,
+       col = "#B2182B", cex = 1.3)
+legend("topleft", c("rutas alternativas", "la ruta elegida", "nulo"),
+       col = c("#2166AC", "#B2182B", "#B2182B"), pch = c(19, 19, NA),
+       lty = c(NA, NA, 2), bty = "n", cex = 0.85)
+par(op)
+```
+
+## Frente a un confusor no medido
+
+El `e_value` de la tabla de hallazgos contesta esto directamente: cuán fuerte
+tendría que ser un confusor no medido para borrar el efecto.
+
+```{r evalue}
+head(hallazgos[, c("source", "target", "estimate", "e_value",
+                   "identification", "level_label")], 6)
+```
+
+## ¿Un número describe a todo el mundo?
+
+```{r heterogeneidad}
+if (!is.null(resultado$tables$heterogeneity) &&
+    NROW(resultado$tables$heterogeneity) > 0) {
+  head(resultado$tables$heterogeneity, 6)
+} else {
+  "Sin resultados de heterogeneidad para esta configuración."
+}
+```
+
+# ¿Qué implicaría cambiar algo?
+
+Solo sobre lo que declaré `modifiable`: un contraste sobre la edad sería
+aritmética sin sentido clínico, y el paquete no lo calcula si no se lo pides.
+
+```{r contrafactual}
+contrafactual <- counterfactual(resultado, modifiable = c("clinica", "Met_TMAO"))
+contrafactual
+```
+
+```{r contrafactual-tabla}
+as.data.frame(contrafactual)
+```
+
+Cada fila lleva su etiqueta de identificación: `adjustment` cuando el conjunto
+de ajuste estaba completo, `none` cuando no. La redacción nunca dice «reduciría»
+sin que un instrumento lo respalde, porque un contraste implicado por un modelo
+no es una predicción de lo que haría una intervención.
+
+# El DAG por separado
+
+`check_dag()` contesta la pregunta de identificación sin tocar los datos: con
+este grafo y este conjunto de ajuste, ¿el efecto es identificable?
+
+```{r dag}
+if (requireNamespace("dagitty", quietly = TRUE)) {
+
+  # ajustando por los confusores correctos
+  print(check_dag(verdad, "Prot_IL6", "evento", adjusted = c("edad", "imc")))
+
+} else {
+  "Requiere el paquete dagitty: install.packages(\"dagitty\")"
+}
+```
+
+```{r dag-mediador}
+if (requireNamespace("dagitty", quietly = TRUE)) {
+
+  # ajustando por el mediador: se elimina justamente el efecto que se mide
+  print(check_dag(verdad, "edad", "evento",
+                  adjusted = c("Met_TMAO", "Prot_IL6")))
+
+}
+```
+
+# Afirmar algo que podría ser falso
+
+`hypothesis()` congela una afirmación con su protocolo: qué desenlace, qué
+ajuste, qué modelo. Eso es lo que se lleva a otra cohorte.
+
+```{r hipotesis}
+afirmacion <- hypothesis(resultado)
+afirmacion
+```
+
+## Replicarla en una cohorte nueva
+
+Lo importante es que la segunda cohorte se pone en la **misma escala** que la
+primera —con los modelos ya ajustados— en lugar de preprocesarse por su cuenta.
+Eso es `apply_preprocessing()`.
+
+```{r replicacion}
+set.seed(77)
+n2  <- 250
+id2 <- sprintf("VAL%04d", seq_len(n2))
+
+edad2 <- round(rnorm(n2, 66, 8)); imc2 <- rnorm(n2, 28.5, 4)
+tmao2 <- 0.55 * scale(edad2)[, 1] + 0.30 * scale(imc2)[, 1] + rnorm(n2, 0, .75)
+il62  <- 0.60 * tmao2 + 0.25 * scale(imc2)[, 1] + rnorm(n2, 0, .75)
+
+cohorte2 <- load_data(
+  assays = list(
+    clinica = data.frame(edad = edad2, sexo = rbinom(n2, 1, .5),
+                         imc = round(imc2, 1),
+                         tas = round(rnorm(n2, 138, 16)),
+                         ldl = round(rnorm(n2, 115, 28)), row.names = id2),
+    metabolomica = as.data.frame(
+      cbind(Met_TMAO = tmao2, matrix(rnorm(n2 * 24), n2, 24,
+            dimnames = list(NULL, sprintf("Met_%02d", 1:24)))), row.names = id2),
+    proteomica = as.data.frame(
+      cbind(Prot_IL6 = il62, matrix(rnorm(n2 * 17), n2, 17,
+            dimnames = list(NULL, sprintf("Prot_%02d", 1:17)))), row.names = id2)),
+  metadata = data.frame(
+    sample_id = id2,
+    evento = rbinom(n2, 1, plogis(-1.1 + 0.85 * il62 + 0.45 * tmao2 +
+                                    0.030 * (edad2 - 64))),
+    stringsAsFactors = FALSE))
+
+validacion <- apply_preprocessing(cohorte2, listo)
+test_hypothesis(afirmacion, validacion)
+```
+
+La replicación no es que los valores p coincidan. Una afirmación replica cuando
+el nuevo estimador apunta al mismo sitio y es de tamaño comparable; el fallo más
+común es una dirección que se mantiene con un efecto cinco veces menor, que una
+prueba de significación llamaría éxito.
+
+# Dos configuraciones del mismo análisis
+
+`compare_results()` compara dos análisis y, antes de comparar nada, comprueba
+que preguntan lo mismo. Aquí el contraste útil es el mismo desenlace con y sin
+declarar el DAG.
+
+```{r comparacion}
+sin_dag <- analyze(listo, outcome = "evento", effort = "fast",
+                   plots = FALSE, quiet = TRUE,
+                   control = analysis_control(
+                     methods = c("association", "conditional"), seed = 2024))
+
+con_dag <- analyze(listo, outcome = "evento", effort = "fast",
+                   plots = FALSE, quiet = TRUE,
+                   assume = analysis_assumptions(dag = verdad),
+                   control = analysis_control(
+                     methods = c("association", "conditional"), seed = 2024))
+
+compare_results(sin_dag, con_dag, names = c("sin DAG", "con DAG"))
+```
+
+Y el caso que conviene ver aunque no sea el uso previsto: comparar dos
+desenlaces distintos. El paquete se niega a tratarlo como una comparación y
+explica por qué, que es exactamente lo que debería hacer.
+
+```{r comparacion-mala}
+otro <- analyze(listo, outcome = "hdl", effort = "fast", plots = FALSE,
+                quiet = TRUE,
+                control = analysis_control(methods = "association", seed = 2024))
+
+compare_results(resultado, otro, names = c("evento", "hdl"))
+```
+
+# Anotación biológica externa
+
+Queda fuera de `analyze()` a propósito: las bases de pathways se consultan por
+red, y meterlas dentro haría que el análisis no fuese reproducible. Como paso
+aparte, la anotación es un acto explícito y fechado.
+
+```{r anotacion}
+soporte <- data.frame(
+  source   = c("Prot_IL6", "Met_TMAO"),
+  target   = c("evento", "evento"),
+  support  = c(0.92, 0.78),
+  database = "exportación local de ejemplo",
+  stringsAsFactors = FALSE)
+
+anotado <- annotate_evidence(resultado, soporte)
+head(as.data.frame(anotado, all = TRUE)[, c("source", "target",
+     grep("support|database|annotat", names(as.data.frame(anotado, all = TRUE)),
+          value = TRUE))], 4)
+```
+
+# Entregables
+
+## Informe HTML
+
+```{r informe}
+destino <- file.path(tempdir(), "informe-cardio.html")
+report(resultado, file = destino)
+
+c(existe = file.exists(destino), KB = round(file.size(destino) / 1024))
+```
+
+## El grafo para Cytoscape o igraph
+
+```{r exportar}
+g <- file.path(tempdir(), "grafo.graphml")
+export_graph(resultado, g, format = "graphml")
+
+c(KB = round(file.size(g) / 1024))
+```
+
+# Qué llevan dentro los objetos
+
+Importa por dos razones: el tamaño y, sobre todo, porque son **datos
+individuales de pacientes**. Quien comparta un `.rds` de estos debería saber qué
+va dentro.
+
+```{r objetos}
+objetos <- list(datos = datos, auditoria = auditoria, listo = listo,
+                resultado = resultado, sensibilidad = sensibilidad)
+
+data.frame(
+  objeto = names(objetos),
+  clase  = sapply(objetos, function(x) class(x)[1]),
+  MB     = round(sapply(objetos, function(x)
+             as.numeric(object.size(x)) / 1024^2), 1),
+  cohorte_dentro = sapply(objetos, function(x)
+    !is.null(x$data$assays) || !is.null(x$assays) || !is.null(x$input$assays)),
+  row.names = NULL
+)
+```
+
+Tres cosas concretas, por si hace falta decidir qué se comparte:
+
+- `auditoria` es casi todo figuras grabadas: `check_data(plots = FALSE)` lo deja
+  en una fracción sin cambiar ningún hallazgo.
+- `listo` guarda **dos copias completas** de la cohorte, `$input$assays` y
+  `$data$assays`. La segunda hace falta para que `apply_preprocessing()` pueda
+  repetir los modelos en una cohorte nueva.
+- `resultado` guarda `$outcome$values`, el desenlace sujeto a sujeto.
+
+# Reproducibilidad
+
+Cada objeto lleva su semilla y su sello de tiempo, y el `sessionInfo()` cierra
+el documento.
+
+```{r reproducibilidad}
+c(semilla_control = control$seed,
+  version_paquete = as.character(utils::packageVersion("CausalMultiOmics")))
+```
+
+```{r sesion}
+sessionInfo()
+```
+
+---
+
+# Resumen del recorrido
+
+Funciones públicas ejercitadas en este documento:
+
+| Etapa | Funciones |
+|---|---|
+| Preparación | `cmo_setup()` |
+| Datos | `load_data()`, `print()`, `summary()` |
+| Auditoría | `check_data()`, `as.data.frame()`, `cmo_plots()`, `plot()` |
+| Preprocesado | `preprocess()`, `apply_preprocessing()`, `as.data.frame()`, `plot()` |
+| Supuestos | `analysis_assumptions()`, `analysis_control()` |
+| Análisis | `analyze()`, `as.data.frame()`, `outcome_name()`, `plot()` |
+| Lectura | `explain()` |
+| Robustez | `sensitivity()`, `check_dag()` |
+| Acción | `counterfactual()` |
+| Afirmación | `hypothesis()`, `test_hypothesis()` |
+| Comparación | `compare_results()` |
+| Anotación | `annotate_evidence()` |
+| Salida | `report()`, `export_graph()` |
+
+Las 23 funciones exportadas, salvo `simulate_data()` —que aquí sustituí por una
+cohorte escrita a mano para que la estructura plantada fuese explícita.

@@ -51,3 +51,6 @@ export_graph(res, file.path(tempdir(), "graph.graphml"))
 }
 
 }
+\seealso{
+\code{\link{analyze}}, \code{\link{report}}, \code{\link{as.data.frame.CMOResult}}
+}

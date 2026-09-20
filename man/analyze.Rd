@@ -94,6 +94,36 @@ act: one that moved your generator would silently change every simulation
 you ran next.
 }
 
+\section{What the returned object contains}{
+
+The result carries individual-level data, by design: the traceability the
+package aims for requires that every number can be traced back to the rows
+it came from. A \code{PreprocessingResult} holds two full copies of the
+cohort, the input and the transformed version, so that
+\code{apply_preprocessing()} can replay the fitted models on a new cohort.
+A \code{CMOResult} holds the outcome value of every subject. Both are
+therefore identifiable data: check with whoever governs your dataset before
+emailing one of these objects or committing a \code{.rds} of it to a
+repository.
+}
+
+\examples{
+data <- simulate_data(n = 80, blocks = list(main = 8), seed = 1)
+ready <- preprocess(data, check_data(data), plots = FALSE, quiet = TRUE)
+
+fit <- analyze(ready, outcome = "y", effort = "fast", plots = FALSE,
+               quiet = TRUE,
+               control = analysis_control(methods = c("association", "conditional")))
+fit
+
+# The findings as a table, ordered by evidence.
+head(as.data.frame(fit))
+
+# Only the methods that need no extra package, for a quick pass.
+analyze(ready, outcome = "y", effort = "fast", plots = FALSE, quiet = TRUE,
+        control = analysis_control(methods = c("association",
+                                               "conditional")))
+}
 \seealso{
 \code{\link{analysis_assumptions}}, \code{\link{analysis_control}},
 \code{\link{preprocess}}

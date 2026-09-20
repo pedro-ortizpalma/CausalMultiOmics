@@ -69,6 +69,8 @@
 #'
 #' @return A \code{CMOSensitivity}.
 #'
+#' @seealso \code{\link{analyze}}, \code{\link{explain}}, \code{\link{as.data.frame.CMOSensitivity}}
+#'
 #' @examples
 #' \donttest{
 #' sim <- simulate_data(n = 200, blocks = list(a = c("x", "z")),
@@ -80,6 +82,7 @@
 #'
 #' sensitivity(res, "x")
 #' }
+#'
 #'
 #' @export
 sensitivity <- function(object, feature = NULL, variants = NULL,

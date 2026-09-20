@@ -74,8 +74,13 @@ x <- load_data(
 
 prep <- preprocess(x, check_data(x), plots = FALSE, quiet = TRUE)
 res <- analyze(prep, outcome = "HDL", effort = "fast",
-               plots = FALSE, quiet = TRUE)
+               plots = FALSE, quiet = TRUE,
+               control = analysis_control(methods = c("association", "conditional")))
 
 counterfactual(res, modifiable = "APOA1")
 
+
+}
+\seealso{
+\code{\link{analyze}}, \code{\link{explain}}, \code{\link{as.data.frame.CMOCounterfactual}}
 }

@@ -61,4 +61,8 @@ or noisier, never wrong.
 \examples{
 analysis_control(methods = c("association", "survival"), max_features = 200)
 
+
+}
+\seealso{
+\code{\link{analyze}}, \code{\link{analysis_assumptions}}, \code{\link{cmo_setup}}
 }

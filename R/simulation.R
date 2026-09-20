@@ -76,6 +76,8 @@
 #' @return A \code{MultiOmicsData} with \code{misc$simulation} describing what
 #'   was planted.
 #'
+#' @seealso \code{\link{load_data}}, \code{\link{check_data}}, \code{\link{analyze}}
+#'
 #' @examples
 #' # A confounder, a mediator, and a variable the outcome causes.
 #' structure <- data.frame(
@@ -93,6 +95,7 @@
 #' )
 #'
 #' sim$misc$simulation$noise_features
+#'
 #'
 #' @export
 simulate_data <- function(n = 200,

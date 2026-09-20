@@ -50,6 +50,19 @@ Sample-level decisions (empty, duplicated or outlying samples) are marked
 as non-replayable, because an external cohort has its own samples.
 Feature-level decisions are replayable and pin the feature set.
 }
+\section{What the returned object contains}{
+
+The result carries individual-level data, by design: the traceability the
+package aims for requires that every number can be traced back to the rows
+it came from. A \code{PreprocessingResult} holds two full copies of the
+cohort, the input and the transformed version, so that
+\code{apply_preprocessing()} can replay the fitted models on a new cohort.
+A \code{CMOResult} holds the outcome value of every subject. Both are
+therefore identifiable data: check with whoever governs your dataset before
+emailing one of these objects or committing a \code{.rds} of it to a
+repository.
+}
+
 \examples{
 tr <- data.frame(
   Gene1 = rnorm(10),

@@ -62,12 +62,15 @@
 #'
 #' @return An \code{analysis_assumptions} object.
 #'
+#' @seealso \code{\link{analyze}}, \code{\link{analysis_control}}, \code{\link{check_dag}}
+#'
 #' @examples
 #' analysis_assumptions(
 #'   dag = data.frame(from = "age", to = c("bmi", "death")),
 #'   modifiable = "diet",
 #'   reliability = c(bmi = 0.95)
 #' )
+#'
 #'
 #' @export
 analysis_assumptions <- function(dag = NULL,
@@ -138,8 +141,11 @@ analysis_assumptions <- function(dag = NULL,
 #'
 #' @return An \code{analysis_control} object.
 #'
+#' @seealso \code{\link{analyze}}, \code{\link{analysis_assumptions}}, \code{\link{cmo_setup}}
+#'
 #' @examples
 #' analysis_control(methods = c("association", "survival"), max_features = 200)
+#'
 #'
 #' @export
 analysis_control <- function(methods = NULL,

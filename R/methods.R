@@ -108,19 +108,41 @@ print.MultiOmicsData <- function(x, ...) {
 # summary()
 # -----------------------------------------------------------------------------
 
-#' Print everything stored in a MultiOmicsData object
+#' Assemble the full summary of a MultiOmicsData object
 #'
-#' Walks through every section the object carries. Use
-#' \code{print()} for a one-screen overview instead.
+#' Returns the summary rather than printing it, so that it can be stored,
+#' captured with \code{utils::capture.output()} or looped over. Printing is
+#' the job of \code{print.summary.MultiOmicsData()}, which the console calls for you
+#' when you type \code{summary(x)}.
 #'
 #' @param object A \code{MultiOmicsData} object.
+#' @param ... Ignored.
+#'
+#' @return An object of class \code{summary.MultiOmicsData}.
+#'
+#' @export
+
+summary.MultiOmicsData <- function(object, ...) {
+
+  structure(list(object = object),
+            class = c("summary.MultiOmicsData", "cmo_summary"))
+
+}
+
+
+#' Print the summary of a MultiOmicsData object
+#'
+#' @param x A \code{summary.MultiOmicsData} object, as returned by
+#'   \code{summary()} on a \code{MultiOmicsData}.
 #' @param ... Ignored.
 #'
 #' @return The object, invisibly.
 #'
 #' @export
 
-summary.MultiOmicsData <- function(object,...){
+print.summary.MultiOmicsData <- function(x, ...) {
+
+  object <- x$object
 
   cat("\n")
   cat("========== MultiOmicsData Summary ==========\n\n")
@@ -203,7 +225,7 @@ summary.MultiOmicsData <- function(object,...){
 
   }
 
-  invisible(object)
+  invisible(x)
 
 }
 
@@ -286,19 +308,41 @@ print.BlockDiagnostics <- function(x, ...) {
 # summary()
 # -----------------------------------------------------------------------------
 
-#' Print everything stored in a BlockDiagnostics object
+#' Assemble the full summary of a BlockDiagnostics object
 #'
-#' Walks through every section the object carries. Use
-#' \code{print()} for a one-screen overview instead.
+#' Returns the summary rather than printing it, so that it can be stored,
+#' captured with \code{utils::capture.output()} or looped over. Printing is
+#' the job of \code{print.summary.BlockDiagnostics()}, which the console calls for you
+#' when you type \code{summary(x)}.
 #'
 #' @param object A \code{BlockDiagnostics} object.
+#' @param ... Ignored.
+#'
+#' @return An object of class \code{summary.BlockDiagnostics}.
+#'
+#' @export
+
+summary.BlockDiagnostics <- function(object, ...) {
+
+  structure(list(object = object),
+            class = c("summary.BlockDiagnostics", "cmo_summary"))
+
+}
+
+
+#' Print the summary of a BlockDiagnostics object
+#'
+#' @param x A \code{summary.BlockDiagnostics} object, as returned by
+#'   \code{summary()} on a \code{BlockDiagnostics}.
 #' @param ... Ignored.
 #'
 #' @return The object, invisibly.
 #'
 #' @export
 
-summary.BlockDiagnostics <- function(object, ...) {
+print.summary.BlockDiagnostics <- function(x, ...) {
+
+  object <- x$object
 
   cat("\n")
   cat("========== Block Diagnostics ==========\n\n")
@@ -398,7 +442,7 @@ summary.BlockDiagnostics <- function(object, ...) {
               "Duplicated samples",
               length(object$duplicated_samples)))
 
-  invisible(object)
+  invisible(x)
 
 }
 
@@ -462,19 +506,41 @@ print.TransformationRecommendation <- function(x, ...) {
 # summary()
 # -----------------------------------------------------------------------------
 
-#' Print everything stored in a TransformationRecommendation object
+#' Assemble the full summary of a TransformationRecommendation object
 #'
-#' Walks through every section the object carries. Use
-#' \code{print()} for a one-screen overview instead.
+#' Returns the summary rather than printing it, so that it can be stored,
+#' captured with \code{utils::capture.output()} or looped over. Printing is
+#' the job of \code{print.summary.TransformationRecommendation()}, which the console calls for you
+#' when you type \code{summary(x)}.
 #'
 #' @param object A \code{TransformationRecommendation} object.
+#' @param ... Ignored.
+#'
+#' @return An object of class \code{summary.TransformationRecommendation}.
+#'
+#' @export
+
+summary.TransformationRecommendation <- function(object, ...) {
+
+  structure(list(object = object),
+            class = c("summary.TransformationRecommendation", "cmo_summary"))
+
+}
+
+
+#' Print the summary of a TransformationRecommendation object
+#'
+#' @param x A \code{summary.TransformationRecommendation} object, as returned by
+#'   \code{summary()} on a \code{TransformationRecommendation}.
 #' @param ... Ignored.
 #'
 #' @return The object, invisibly.
 #'
 #' @export
 
-summary.TransformationRecommendation <- function(object, ...) {
+print.summary.TransformationRecommendation <- function(x, ...) {
+
+  object <- x$object
 
   cat("\n")
   cat("===== Transformation Recommendation =====\n\n")
@@ -548,7 +614,7 @@ summary.TransformationRecommendation <- function(object, ...) {
 
   }
 
-  invisible(object)
+  invisible(x)
 
 }
 
@@ -619,19 +685,41 @@ print.PreprocessingRecipe <- function(x, ...) {
 # summary()
 # -----------------------------------------------------------------------------
 
-#' Print everything stored in a PreprocessingRecipe object
+#' Assemble the full summary of a PreprocessingRecipe object
 #'
-#' Walks through every section the object carries. Use
-#' \code{print()} for a one-screen overview instead.
+#' Returns the summary rather than printing it, so that it can be stored,
+#' captured with \code{utils::capture.output()} or looped over. Printing is
+#' the job of \code{print.summary.PreprocessingRecipe()}, which the console calls for you
+#' when you type \code{summary(x)}.
 #'
 #' @param object A \code{PreprocessingRecipe} object.
+#' @param ... Ignored.
+#'
+#' @return An object of class \code{summary.PreprocessingRecipe}.
+#'
+#' @export
+
+summary.PreprocessingRecipe <- function(object, ...) {
+
+  structure(list(object = object),
+            class = c("summary.PreprocessingRecipe", "cmo_summary"))
+
+}
+
+
+#' Print the summary of a PreprocessingRecipe object
+#'
+#' @param x A \code{summary.PreprocessingRecipe} object, as returned by
+#'   \code{summary()} on a \code{PreprocessingRecipe}.
 #' @param ... Ignored.
 #'
 #' @return The object, invisibly.
 #'
 #' @export
 
-summary.PreprocessingRecipe <- function(object, ...) {
+print.summary.PreprocessingRecipe <- function(x, ...) {
+
+  object <- x$object
 
   cat("\n")
   cat("========== Preprocessing Recipe ==========\n\n")
@@ -768,7 +856,7 @@ summary.PreprocessingRecipe <- function(object, ...) {
               "Estimated quality",
               object$estimated_quality))
 
-  invisible(object)
+  invisible(x)
 
 }
 
@@ -838,19 +926,41 @@ print.PreprocessingResult <- function(x, ...) {
 # summary()
 # -----------------------------------------------------------------------------
 
-#' Print everything stored in a PreprocessingResult object
+#' Assemble the full summary of a PreprocessingResult object
 #'
-#' Walks through every section the object carries. Use
-#' \code{print()} for a one-screen overview instead.
+#' Returns the summary rather than printing it, so that it can be stored,
+#' captured with \code{utils::capture.output()} or looped over. Printing is
+#' the job of \code{print.summary.PreprocessingResult()}, which the console calls for you
+#' when you type \code{summary(x)}.
 #'
 #' @param object A \code{PreprocessingResult} object.
+#' @param ... Ignored.
+#'
+#' @return An object of class \code{summary.PreprocessingResult}.
+#'
+#' @export
+
+summary.PreprocessingResult <- function(object, ...) {
+
+  structure(list(object = object),
+            class = c("summary.PreprocessingResult", "cmo_summary"))
+
+}
+
+
+#' Print the summary of a PreprocessingResult object
+#'
+#' @param x A \code{summary.PreprocessingResult} object, as returned by
+#'   \code{summary()} on a \code{PreprocessingResult}.
 #' @param ... Ignored.
 #'
 #' @return The object, invisibly.
 #'
 #' @export
 
-summary.PreprocessingResult <- function(object, ...) {
+print.summary.PreprocessingResult <- function(x, ...) {
+
+  object <- x$object
 
   cat("\n")
   cat("======= Preprocessing Result =======\n\n")
@@ -983,7 +1093,7 @@ summary.PreprocessingResult <- function(object, ...) {
 
   }
 
-  invisible(object)
+  invisible(x)
 
 }
 
@@ -1051,19 +1161,41 @@ print.CMOValidation <- function(x, ...) {
 # summary()
 # -----------------------------------------------------------------------------
 
-#' Print everything stored in a CMOValidation object
+#' Assemble the full summary of a CMOValidation object
 #'
-#' Walks through every section the object carries. Use
-#' \code{print()} for a one-screen overview instead.
+#' Returns the summary rather than printing it, so that it can be stored,
+#' captured with \code{utils::capture.output()} or looped over. Printing is
+#' the job of \code{print.summary.CMOValidation()}, which the console calls for you
+#' when you type \code{summary(x)}.
 #'
 #' @param object A \code{CMOValidation} object.
+#' @param ... Ignored.
+#'
+#' @return An object of class \code{summary.CMOValidation}.
+#'
+#' @export
+
+summary.CMOValidation <- function(object, ...) {
+
+  structure(list(object = object),
+            class = c("summary.CMOValidation", "cmo_summary"))
+
+}
+
+
+#' Print the summary of a CMOValidation object
+#'
+#' @param x A \code{summary.CMOValidation} object, as returned by
+#'   \code{summary()} on a \code{CMOValidation}.
 #' @param ... Ignored.
 #'
 #' @return The object, invisibly.
 #'
 #' @export
 
-summary.CMOValidation <- function(object, ...) {
+print.summary.CMOValidation <- function(x, ...) {
+
+  object <- x$object
 
   cat("\n")
   cat("============= CMOValidation Summary =============\n\n")
@@ -1340,23 +1472,27 @@ summary.CMOValidation <- function(object, ...) {
   cat("Execution\n")
   cat("---------\n")
 
-  if(!is.null(object$execution$runtime))
-    cat("Runtime :",object$execution$runtime,"\n")
+  # Formatted, not raw: the runtime needs its unit and the start/finish marks
+  # are POSIXct, which cat() would print as the seconds since 1970.
+  if (!is.null(object$execution$runtime))
+    cat(sprintf("%-9s %.1f s\n", "Runtime", as.numeric(object$execution$runtime)))
 
-  if(!is.null(object$execution$started))
-    cat("Started :",object$execution$started,"\n")
+  if (!is.null(object$execution$started))
+    cat(sprintf("%-9s %s\n", "Started",
+                format(as.POSIXct(object$execution$started), "%Y-%m-%d %H:%M:%S")))
 
-  if(!is.null(object$execution$finished))
-    cat("Finished:",object$execution$finished,"\n")
+  if (!is.null(object$execution$finished))
+    cat(sprintf("%-9s %s\n", "Finished",
+                format(as.POSIXct(object$execution$finished), "%Y-%m-%d %H:%M:%S")))
 
   cat("\n")
 
   cat("Timestamp\n")
   cat("---------\n")
 
-  print(object$timestamp)
+  cat(format(object$timestamp), "\n")
 
-  invisible(object)
+  invisible(x)
 
 }
 
@@ -1447,19 +1583,41 @@ print.EvidenceEdge <- function(x, ...) {
 # summary()
 # -----------------------------------------------------------------------------
 
-#' Print everything stored in a EvidenceEdge object
+#' Assemble the full summary of a EvidenceEdge object
 #'
-#' Walks through every section the object carries. Use
-#' \code{print()} for a one-screen overview instead.
+#' Returns the summary rather than printing it, so that it can be stored,
+#' captured with \code{utils::capture.output()} or looped over. Printing is
+#' the job of \code{print.summary.EvidenceEdge()}, which the console calls for you
+#' when you type \code{summary(x)}.
 #'
 #' @param object A \code{EvidenceEdge} object.
+#' @param ... Ignored.
+#'
+#' @return An object of class \code{summary.EvidenceEdge}.
+#'
+#' @export
+
+summary.EvidenceEdge <- function(object, ...) {
+
+  structure(list(object = object),
+            class = c("summary.EvidenceEdge", "cmo_summary"))
+
+}
+
+
+#' Print the summary of a EvidenceEdge object
+#'
+#' @param x A \code{summary.EvidenceEdge} object, as returned by
+#'   \code{summary()} on a \code{EvidenceEdge}.
 #' @param ... Ignored.
 #'
 #' @return The object, invisibly.
 #'
 #' @export
 
-summary.EvidenceEdge <- function(object, ...) {
+print.summary.EvidenceEdge <- function(x, ...) {
+
+  object <- x$object
 
   print(object)
 
@@ -1601,7 +1759,7 @@ summary.EvidenceEdge <- function(object, ...) {
 
   }
 
-  invisible(object)
+  invisible(x)
 
 }
 
@@ -1958,19 +2116,41 @@ print.EvidenceGraph <- function(x, ...) {
 # summary()
 # -----------------------------------------------------------------------------
 
-#' Print everything stored in a EvidenceGraph object
+#' Assemble the full summary of a EvidenceGraph object
 #'
-#' Walks through every section the object carries. Use
-#' \code{print()} for a one-screen overview instead.
+#' Returns the summary rather than printing it, so that it can be stored,
+#' captured with \code{utils::capture.output()} or looped over. Printing is
+#' the job of \code{print.summary.EvidenceGraph()}, which the console calls for you
+#' when you type \code{summary(x)}.
 #'
 #' @param object A \code{EvidenceGraph} object.
+#' @param ... Ignored.
+#'
+#' @return An object of class \code{summary.EvidenceGraph}.
+#'
+#' @export
+
+summary.EvidenceGraph <- function(object, ...) {
+
+  structure(list(object = object),
+            class = c("summary.EvidenceGraph", "cmo_summary"))
+
+}
+
+
+#' Print the summary of a EvidenceGraph object
+#'
+#' @param x A \code{summary.EvidenceGraph} object, as returned by
+#'   \code{summary()} on a \code{EvidenceGraph}.
 #' @param ... Ignored.
 #'
 #' @return The object, invisibly.
 #'
 #' @export
 
-summary.EvidenceGraph <- function(object, ...) {
+print.summary.EvidenceGraph <- function(x, ...) {
+
+  object <- x$object
 
   print(object)
 
@@ -2012,7 +2192,7 @@ summary.EvidenceGraph <- function(object, ...) {
 
   }
 
-  invisible(object)
+  invisible(x)
 
 }
 
@@ -2052,8 +2232,50 @@ print.CMOResult <- function(x, ...) {
 
   cat("\n")
 
-  cat(sprintf("%-30s %s\n", "Methods run:",
-              fmt_num(x$performance$generators_run, 0)))
+  # How much of the engine actually ran. A bare count hides that most
+  # generators may have been skipped, and the score weights method agreement,
+  # so an incomplete install biases evidence downwards rather than just
+  # returning less of it.
+  .n_run <- x$performance$generators_run
+  .n_all <- x$performance$generators_considered
+  .skip  <- x$performance$generators_skipped
+
+  if (is.null(.n_all) || !is.finite(.n_all)) {
+
+    cat(sprintf("%-30s %s\n", "Methods run:", fmt_num(.n_run, 0)))
+
+  } else {
+
+    .reasons <- vapply(.skip, function(s) s$reason, character(1))
+    .by_pkg  <- sum(.reasons == "packages")
+    .by_dsgn <- sum(.reasons == "design")
+    .failed  <- sum(.reasons == "failed")
+
+    cat(sprintf("%-30s %d of %d\n", "Methods run:", .n_run, .n_all))
+
+    if (length(.skip) > 0) {
+
+      .parts <- c(
+        if (.by_pkg > 0) sprintf("%d need packages", .by_pkg),
+        if (.by_dsgn > 0) sprintf("%d not applicable to this design", .by_dsgn),
+        if (.failed > 0) sprintf("%d failed", .failed))
+
+      cat(sprintf("%-30s %d (%s)\n", "Methods skipped:",
+                  length(.skip), paste(.parts, collapse = ", ")))
+
+      .miss <- x$performance$generators_missing_packages
+
+      if (length(.miss) > 0) {
+        cat(sprintf("%-30s install.packages(c(%s))\n", "  to enable those:",
+                    paste0('"', .miss, '"', collapse = ", ")))
+      }
+
+    }
+
+  }
+  if (!is.null(x$performance$generators_considered) &&
+      length(x$performance$generators_skipped) > 0) cat("\n")
+
   cat(sprintf("%-30s %s\n", "Relationships found:",
               fmt_num(x$performance$edges_generated, 0)))
   cat(sprintf("%-30s %s\n", "After integration:",
@@ -2079,19 +2301,41 @@ print.CMOResult <- function(x, ...) {
 # summary()
 # -----------------------------------------------------------------------------
 
-#' Print everything stored in a CMOResult object
+#' Assemble the full summary of a CMOResult object
 #'
-#' Walks through every section the object carries. Use
-#' \code{print()} for a one-screen overview instead.
+#' Returns the summary rather than printing it, so that it can be stored,
+#' captured with \code{utils::capture.output()} or looped over. Printing is
+#' the job of \code{print.summary.CMOResult()}, which the console calls for you
+#' when you type \code{summary(x)}.
 #'
 #' @param object A \code{CMOResult} object.
+#' @param ... Ignored.
+#'
+#' @return An object of class \code{summary.CMOResult}.
+#'
+#' @export
+
+summary.CMOResult <- function(object, ...) {
+
+  structure(list(object = object),
+            class = c("summary.CMOResult", "cmo_summary"))
+
+}
+
+
+#' Print the summary of a CMOResult object
+#'
+#' @param x A \code{summary.CMOResult} object, as returned by
+#'   \code{summary()} on a \code{CMOResult}.
 #' @param ... Ignored.
 #'
 #' @return The object, invisibly.
 #'
 #' @export
 
-summary.CMOResult <- function(object, ...) {
+print.summary.CMOResult <- function(x, ...) {
+
+  object <- x$object
 
   cat("\n")
   cat("================== CMOResult Summary ==================\n\n")
@@ -2254,7 +2498,7 @@ summary.CMOResult <- function(object, ...) {
 
   cat(paste0("- ", object$report$limitations), sep = "\n")
 
-  invisible(object)
+  invisible(x)
 
 }
 
@@ -2401,6 +2645,18 @@ summary.CMOResult <- function(object, ...) {
 #' @param ... Passed to methods.
 #'
 #' @return The object, invisibly.
+#'
+#'
+#' @seealso \code{\link{check_data}}, \code{\link{preprocess}}, \code{\link{analyze}}, \code{\link{export_graph}}
+#'
+#' @examples
+#' data <- simulate_data(n = 60, blocks = list(main = 6), seed = 1)
+#' audit <- check_data(data)
+#'
+#' file <- tempfile(fileext = ".html")
+#' report(audit, file = file)
+#' file.exists(file)
+#' unlink(file)
 #'
 #' @export
 
@@ -6215,6 +6471,8 @@ report.CMOResult <- function(object,
 #'   default keeps everything.
 #'
 #' @return The path, invisibly.
+#'
+#' @seealso \code{\link{analyze}}, \code{\link{report}}, \code{\link{as.data.frame.CMOResult}}
 #'
 #' @examples
 #' \donttest{

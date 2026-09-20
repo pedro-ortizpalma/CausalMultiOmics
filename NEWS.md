@@ -1,3 +1,109 @@
+# CausalMultiOmics 0.1.1
+
+## A stage that removed features said it had removed none
+
+* `preprocess()` under-reported what it dropped. The step recorder derived
+  the removed names from `model$columns`, but the feature-selection and
+  filter models record the columns they *keep*, under `keep`. Reading a field
+  that was never there returned `character(0)`, so a run that took a block
+  from 600 features to 500 reported `Removed features: 0` in `print()` and
+  `None` in `summary()`. Only the `Pipeline` table showed the change.
+* The recorder now compares the column names before and after each stage.
+  That is independent of the fitted model, so it is also correct for any
+  stage added later. This matters beyond a wrong number: a package whose
+  purpose is that nothing disappears unrecorded cannot lose a hundred
+  variables in silence.
+
+## How much of the engine actually ran
+
+* `print()` on a `CMOResult` said `Methods run: 3` without saying that six
+  generators had been skipped, or why. It now reads `Methods run: 3 of 9`,
+  followed by how many were skipped for missing packages, how many were not
+  applicable to the detected design, and the `install.packages()` call that
+  would enable the first group. The counts live in
+  `result$performance$generators_skipped`, so a report can read them too.
+* `cmo_setup()` answers the same question before an analysis rather than
+  after: which generators and which optional preprocessing methods this
+  machine can run. It reads the engine's own registries, so it cannot fall
+  out of step with the methods on offer. The output says why an incomplete
+  installation is not simply a smaller answer: the evidence score weights
+  agreement between methods, so a relationship seen by one generator scores
+  below the same relationship seen by four.
+* Availability is now probed with `system.file()` instead of
+  `requireNamespace()`. The latter executes the package's load code, so
+  probing nine optional dependencies pulled all nine into the session, and a
+  package with a broken binary aborted the R session instead of reporting
+  itself as unavailable.
+
+## summary() returns the summary
+
+* All nine `summary()` methods printed as a side effect and returned their
+  input, so `summary(x)` printed the header twice, `s <- summary(x)` printed
+  anyway, and the summary could not be stored or looped over. They now return
+  an object of class `summary.<Class>`, and the printing moved to matching
+  `print.summary.<Class>()` methods. What you see at the console is
+  unchanged, because that is what auto-printing calls.
+
+## Getting the results out
+
+* `as.data.frame()` on a `CMOResult`, `EvidenceGraph`, `CMOSensitivity`,
+  `CMOCounterfactual`, `CMOValidation` or `PreprocessingResult` returns the
+  table a reader wants, ordered by evidence. Previously this meant knowing
+  that the findings live in `result$graph$edges` and choosing among its 27
+  columns; `all = TRUE` still returns all of them. `outcome_only` and
+  `min_score` cover the two filters everyone writes by hand.
+* `outcome_name()` reads the outcome of a result. The outcome is stored as a
+  list, so comparing `result$outcome` against a character column succeeds by
+  coercion and quietly returns the wrong rows.
+* `plot()` methods for `CMOValidation`, `CMOResult` and
+  `PreprocessingResult` replay the figures the object already carries. Base R
+  previously answered `plot(result)` with a message about components `x` and
+  `y`. Called with no figure name it lists what is available; with a name
+  that does not exist it names the ones that do; for a figure drawn once per
+  block it gives the exact call to make. `cmo_plots()` lists them without
+  drawing.
+
+## Metadata identifiers
+
+* Metadata whose identifiers sit in row names rather than a `sample_id`
+  column is now usable. Blocks carry their identifiers in row names, so a
+  user who follows the same convention for the metadata was doing the
+  natural thing and got a hard validation error. The row names are used and
+  a warning says so.
+* Metadata that shares no identifier at all with the blocks is now an error
+  rather than two warnings about partial coverage. Zero overlap is wrong
+  labels, not missing samples, and every downstream step would have run with
+  no metadata attached. The message shows both sets of identifiers.
+
+## check_data() can skip the figures
+
+* `check_data()` gained a `plots` argument, which `preprocess()` and
+  `analyze()` already had. The figures are 4-6% of the runtime but around
+  90% of the returned object: at 1600 features a `CMOValidation` is 27 MB,
+  25 of them recorded plots. `plots = FALSE` brings that to 1.7 MB and
+  changes no finding. Skipping them is a memory decision, not a speed one.
+* Measured scaling, for the record: `check_data()` is linear in the number
+  of features (fitted exponent 0.98 between 100 and 1600 features), at
+  roughly 43 ms per feature with n = 300. The cost sits in the per-feature
+  diagnostics and the transformation benchmark, not in the figures. A panel
+  of 5000 features should be expected to take minutes.
+* `plot()` on an object built without figures now says so, instead of
+  reporting that one particular slot is empty.
+
+## Documentation
+
+* Runnable `\examples` added to `analyze()`, `check_data()`, `report()`,
+  `test_hypothesis()`, `apply_preprocessing()` and `annotate_evidence()`,
+  which had none. Every exported function now has both an example and a
+  `\seealso`, and the cross-references chain the five stages, so `?check_data`
+  leads to `preprocess()` and `analyze()`.
+* `?analyze` and `?preprocess` now state which individual-level data the
+  returned objects carry, because both are identifiable data and a user who
+  shares an object should know it.
+* The `Execution` section of `summary()` printed the runtime without its unit
+  and the start and finish marks as seconds since 1970.
+
+
 # CausalMultiOmics 0.1.0
 
 ## Two kinds of argument, kept apart

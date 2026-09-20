@@ -1846,6 +1846,14 @@
   for (stage in order) {
 
     before <- .block_dim(x)
+
+    # Column names as they stand before this stage runs. What a stage dropped
+    # must not be derived from the shape of the fitted model: the
+    # feature-selection models record the columns they keep under `keep`, not
+    # `columns`, so reading `model$columns` yielded NULL and the removal went
+    # unrecorded. Comparing names before and after is method-agnostic and
+    # cannot silently return nothing.
+    before_names <- names(x)
     started <- Sys.time()
 
     if (identical(stage, "remove_features")) {
@@ -1962,7 +1970,7 @@
            model = model,
            before = before, after = after,
            removed_features = if (after[2] < before[2])
-             setdiff(model$columns, names(x)) else character(0),
+             setdiff(before_names, names(x)) else character(0),
            runtime = as.numeric(difftime(Sys.time(), started, units = "secs")))
 
   }
@@ -2129,6 +2137,17 @@
 #'   the validation reported errors. The mismatch is recorded in the result.
 #' @param quiet Whether to suppress progress messages.
 #'
+#'
+#' @section What the returned object contains:
+#' The result carries individual-level data, by design: the traceability the
+#' package aims for requires that every number can be traced back to the rows
+#' it came from. A \code{PreprocessingResult} holds two full copies of the
+#' cohort, the input and the transformed version, so that
+#' \code{apply_preprocessing()} can replay the fitted models on a new cohort.
+#' A \code{CMOResult} holds the outcome value of every subject. Both are
+#' therefore identifiable data: check with whoever governs your dataset before
+#' emailing one of these objects or committing a \code{.rds} of it to a
+#' repository.
 #' @return A \code{PreprocessingResult} object.
 #'
 #' @seealso \code{\link{apply_preprocessing}} to replay the result on new data.
@@ -2397,6 +2416,15 @@ preprocess <- function(object,
 #'
 #' @seealso \code{\link{preprocess}}
 #'
+#'
+#' @examples
+#' train <- simulate_data(n = 80, blocks = list(main = 6), seed = 1)
+#' cleaned <- preprocess(train, check_data(train), plots = FALSE, quiet = TRUE)
+#'
+#' # A new cohort is transformed with the models fitted on the first one,
+#' # not refitted on itself.
+#' newdata <- simulate_data(n = 40, blocks = list(main = 6), seed = 2)
+#' apply_preprocessing(newdata, cleaned, quiet = TRUE)
 #' @export
 
 apply_preprocessing <- function(object, result, blocks = NULL, quiet = FALSE) {

@@ -1,6 +1,6 @@
 Package: CausalMultiOmics
 Title: Interpretable Causal Analysis of Multi-Block Omics Data
-Version: 0.1.0
+Version: 0.1.1
 Authors@R:
     person("Pedro", "Ortiz-Palma", , "ortiz9009@gmail.com",
            role = c("aut", "cre"))
@@ -15,7 +15,6 @@ Description: Tools for auditing multi-block datasets before integration.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 8.0.0
 Imports:
     grDevices,
     graphics,
@@ -36,3 +35,4 @@ Suggests:
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
 VignetteBuilder: knitr
+Config/roxygen2/version: 8.1.0

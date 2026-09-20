@@ -4,10 +4,16 @@
 \alias{check_data}
 \title{Validate a MultiOmicsData object}
 \usage{
-check_data(object)
+check_data(object, plots = TRUE)
 }
 \arguments{
 \item{object}{A \code{MultiOmicsData} object.}
+
+\item{plots}{Record the diagnostic figures inside the returned object.
+They cost a few percent of the runtime but around 90\\% of the object's
+size, so \code{FALSE} is worth it when the audit is being stored or run
+over many blocks. \code{\link{cmo_plots}} lists what was kept and
+\code{\link{plot.CMOValidation}} draws it.}
 }
 \value{
 A \code{CMOValidation} object.
@@ -25,4 +31,21 @@ recommendations.
 \details{
 The function never modifies the input object. Everything it produces is
 returned inside a single \code{CMOValidation} object.
+}
+\examples{
+data <- simulate_data(n = 80, blocks = list(main = 8), seed = 1)
+
+audit <- check_data(data)
+audit
+
+# The block-level findings as a table.
+as.data.frame(audit)
+
+# Nothing is raised: read the verdict and act on it.
+audit$valid
+audit$errors
+
+}
+\seealso{
+\code{\link{load_data}}, \code{\link{preprocess}}, \code{\link{report}}, \code{\link{as.data.frame.CMOValidation}}
 }

@@ -86,4 +86,8 @@ res <- analyze(prep, "y", effort = "fast", plots = FALSE, quiet = TRUE,
 sensitivity(res, "x")
 }
 
+
+}
+\seealso{
+\code{\link{analyze}}, \code{\link{explain}}, \code{\link{as.data.frame.CMOSensitivity}}
 }

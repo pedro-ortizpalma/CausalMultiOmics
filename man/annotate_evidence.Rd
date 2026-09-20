@@ -30,3 +30,22 @@ in the result.
 Called separately, the annotation is an explicit, dated act: the source and
 the retrieval time are stored on every edge it touches.
 }
+\examples{
+data <- simulate_data(n = 80, blocks = list(main = 8), seed = 1)
+ready <- preprocess(data, check_data(data), plots = FALSE, quiet = TRUE)
+fit <- analyze(ready, outcome = "y", effort = "fast", plots = FALSE,
+               quiet = TRUE,
+               control = analysis_control(methods = c("association", "conditional")))
+
+# A local export keeps the run reproducible: the database version is
+# whatever this table came from, and it is stored on the edges.
+support <- data.frame(source = "main_1", target = "y",
+                      support = 0.8, database = "local export",
+                      stringsAsFactors = FALSE)
+
+annotate_evidence(fit, support)
+
+}
+\seealso{
+\code{\link{analyze}}, \code{\link{explain}}
+}

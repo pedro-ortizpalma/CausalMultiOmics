@@ -44,11 +44,19 @@ structure <- data.frame(
   to   = c("protein", "disease", "inflammation", "disease")
 )
 
-# Adjusting for age closes the backdoor path.
-check_dag(structure, "protein", "disease", adjusted = "age")
+# Reading the diagram needs dagitty, which is a suggested dependency.
+if (requireNamespace("dagitty", quietly = TRUE)) {
 
-# Adjusting for the mediator removes the effect being measured.
-check_dag(structure, "protein", "disease",
-          adjusted = c("age", "inflammation"))
+  # Adjusting for age closes the backdoor path.
+  check_dag(structure, "protein", "disease", adjusted = "age")
 
+  # Adjusting for the mediator removes the effect being measured.
+  check_dag(structure, "protein", "disease",
+            adjusted = c("age", "inflammation"))
+
+}
+
+}
+\seealso{
+\code{\link{analyze}}, \code{\link{analysis_assumptions}}
 }

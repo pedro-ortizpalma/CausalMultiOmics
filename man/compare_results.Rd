@@ -59,4 +59,8 @@ fit <- function(s) {
 compare_results(fit(one), fit(two))
 }
 
+
+}
+\seealso{
+\code{\link{analyze}}, \code{\link{sensitivity}}
 }

@@ -453,3 +453,37 @@ test_that("knn imputation fills from the training cohort", {
   expect_equal(nrow(filled), 2)
 
 })
+
+test_that("removed_features accounts for every feature the pipeline drops", {
+
+  set.seed(11)
+
+  n <- 60; p <- 40
+  ids <- sprintf("S%03d", seq_len(n))
+  block <- as.data.frame(matrix(rnorm(n * p), n, p,
+                                dimnames = list(ids, paste0("F", seq_len(p)))))
+
+  object <- load_data(assays = list(omic = block))
+  validation <- check_data(object)
+
+  recipe <- validation$recipes$omic
+  recipe$feature_selection <- "variance_filter"
+  recipe$feature_selection_parameters <- list(top_n = 25)
+
+  result <- preprocess(object, list(omic = recipe), plots = FALSE, quiet = TRUE)
+
+  kept <- ncol(result$data$assays$omic)
+  dropped <- result$removed_features$omic
+
+  # The headline counter must agree with the dimensions. A stage that removes
+  # features without recording them is exactly the silent data loss this
+  # package exists to prevent, so this is a correctness test, not cosmetics.
+  expect_equal(length(dropped), p - kept)
+  expect_gt(length(dropped), 0)
+  expect_true(all(dropped %in% names(block)))
+  expect_false(any(dropped %in% names(result$data$assays$omic)))
+
+  shown <- paste(utils::capture.output(print(result)), collapse = " ")
+  expect_match(shown, sprintf("Removed features:\\s+%d", length(dropped)))
+
+})

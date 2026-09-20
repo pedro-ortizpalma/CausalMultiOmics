@@ -150,3 +150,62 @@ test_that("the overlap matrix reflects real shared samples", {
   expect_equal(ov["transcriptomics", "proteomics"], 18)
 
 })
+
+test_that("metadata identifiers are read from row names when the column is absent", {
+
+  meta <- cmo_metadata()
+  ids <- meta$sample_id
+  meta$sample_id <- NULL
+  rownames(meta) <- ids
+
+  obj <- load_data(assays = list(a = cmo_block()), metadata = meta)
+  v <- check_data(obj)
+
+  # Blocks carry identifiers in row names; metadata that follows the same
+  # convention is usable, not an error.
+  expect_true(v$valid)
+  expect_false(any(grepl("sample_id", v$errors)))
+  expect_true(any(grepl("row names were used", v$warnings)))
+
+})
+
+test_that("metadata that shares no identifier with the blocks is an error", {
+
+  meta <- cmo_metadata()
+  meta$sample_id <- paste0("other_", meta$sample_id)
+
+  obj <- load_data(assays = list(a = cmo_block()), metadata = meta)
+  v <- check_data(obj)
+
+  # Zero overlap is wrong labels, not partial coverage: reporting it only as
+  # two coverage warnings let a run proceed with no metadata at all.
+  expect_false(v$valid)
+  expect_true(any(grepl("No identifier in the metadata matches", v$errors)))
+
+})
+
+test_that("check_data(plots = FALSE) drops the figures and nothing else", {
+
+  data <- simulate_data(n = 60, blocks = list(main = 8), seed = 13)
+
+  with_plots <- check_data(data)
+  without <- check_data(data, plots = FALSE)
+
+  # The figures are most of the object's size, so skipping them is a memory
+  # decision; every finding must survive unchanged.
+  expect_lt(as.numeric(object.size(without)),
+            as.numeric(object.size(with_plots)) / 2)
+
+  expect_equal(without$valid, with_plots$valid)
+  expect_equal(without$errors, with_plots$errors)
+  expect_equal(names(without$recipes), names(with_plots$recipes))
+  expect_equal(as.data.frame(without), as.data.frame(with_plots))
+
+  # And the audit is still usable downstream.
+  expect_s3_class(preprocess(data, without, plots = FALSE, quiet = TRUE),
+                  "PreprocessingResult")
+
+  # Asking for a figure says what to do rather than naming an empty slot.
+  expect_error(plot(without, "histograms"), "carries no figures")
+
+})

@@ -120,4 +120,8 @@ sim <- simulate_data(
 
 sim$misc$simulation$noise_features
 
+
+}
+\seealso{
+\code{\link{load_data}}, \code{\link{check_data}}, \code{\link{analyze}}
 }

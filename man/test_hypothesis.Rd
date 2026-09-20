@@ -27,3 +27,23 @@ estimate points the same way and is of a comparable size, and the most
 common failure is a direction that holds with an effect a fifth as large,
 which a significance test would call a success.
 }
+\examples{
+data <- simulate_data(n = 80, blocks = list(main = 8), seed = 1)
+ready <- preprocess(data, check_data(data), plots = FALSE, quiet = TRUE)
+fit <- analyze(ready, outcome = "y", effort = "fast", plots = FALSE,
+               quiet = TRUE,
+               control = analysis_control(methods = c("association", "conditional")))
+
+claim <- hypothesis(fit)
+
+# A second cohort, put on the same scale as the first rather than
+# preprocessed on its own terms.
+newdata <- simulate_data(n = 60, blocks = list(main = 8), seed = 2)
+newready <- apply_preprocessing(newdata, ready, quiet = TRUE)
+
+test_hypothesis(claim, newready)
+
+}
+\seealso{
+\code{\link{hypothesis}}, \code{\link{analyze}}, \code{\link{explain}}
+}

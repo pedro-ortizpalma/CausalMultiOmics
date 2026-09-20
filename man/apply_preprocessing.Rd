@@ -36,6 +36,15 @@ and silently dropping rows from a validation set is a common way to
 produce optimistic results.
 }
 }
+\examples{
+train <- simulate_data(n = 80, blocks = list(main = 6), seed = 1)
+cleaned <- preprocess(train, check_data(train), plots = FALSE, quiet = TRUE)
+
+# A new cohort is transformed with the models fitted on the first one,
+# not refitted on itself.
+newdata <- simulate_data(n = 40, blocks = list(main = 6), seed = 2)
+apply_preprocessing(newdata, cleaned, quiet = TRUE)
+}
 \seealso{
 \code{\link{preprocess}}
 }

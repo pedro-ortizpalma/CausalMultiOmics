@@ -2,7 +2,7 @@
 % Please edit documentation in R/methods.R
 \name{summary.BlockDiagnostics}
 \alias{summary.BlockDiagnostics}
-\title{Print everything stored in a BlockDiagnostics object}
+\title{Assemble the full summary of a BlockDiagnostics object}
 \usage{
 \method{summary}{BlockDiagnostics}(object, ...)
 }
@@ -12,9 +12,11 @@
 \item{...}{Ignored.}
 }
 \value{
-The object, invisibly.
+An object of class \code{summary.BlockDiagnostics}.
 }
 \description{
-Walks through every section the object carries. Use
-\code{print()} for a one-screen overview instead.
+Returns the summary rather than printing it, so that it can be stored,
+captured with \code{utils::capture.output()} or looped over. Printing is
+the job of \code{print.summary.BlockDiagnostics()}, which the console calls for you
+when you type \code{summary(x)}.
 }
