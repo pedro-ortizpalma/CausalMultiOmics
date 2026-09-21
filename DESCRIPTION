@@ -18,8 +18,8 @@ Description: Produces a quantified causal hypothesis from multi-block data
     rewarded. Results are written as a self-contained HTML report intended
     for a reader who is not a statistician.
 License: MIT + file LICENSE
-URL: https://github.com/ortiz9009/CausalMultiOmics
-BugReports: https://github.com/ortiz9009/CausalMultiOmics/issues
+URL: https://github.com/pedro-ortizpalma/CausalMultiOmics
+BugReports: https://github.com/pedro-ortizpalma/CausalMultiOmics/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Imports:
