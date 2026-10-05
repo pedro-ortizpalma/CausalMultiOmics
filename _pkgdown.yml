@@ -1,0 +1,145 @@
+url: https://pedro-ortizpalma.github.io/CausalMultiOmics/
+
+template:
+  bootstrap: 5
+  bslib:
+    primary: "#2166AC"
+    base_font: {google: "Source Sans 3"}
+    code_font: {google: "Source Code Pro"}
+
+navbar:
+  structure:
+    left:  [intro, reference, articles, news]
+    right: [search, github]
+  components:
+    articles:
+      text: Articles
+      menu:
+      - text: "Un analisis real (cuaderno completo, en espanol)"
+        href: analisis-ejemplo.html
+      - text: "Prose guide"
+        href: CausalMultiOmics-guide.html
+
+reference:
+- title: Load and audit
+  desc: >
+    Bring blocks in, measure them, and get a preprocessing recipe. Nothing
+    is modified.
+  contents:
+  - load_data
+  - check_data
+  - simulate_data
+
+- title: Preprocess
+  desc: >
+    Execute the recipe, recording every step so it can be replayed on a
+    second cohort.
+  contents:
+  - preprocess
+  - apply_preprocessing
+
+- title: State the question
+  desc: >
+    What you believe and how it should be computed, written down before
+    anything is estimated.
+  contents:
+  - analysis_assumptions
+  - analysis_control
+  - check_dag
+
+- title: Analyse
+  desc: >
+    Run the evidence generators and merge them into one scored graph.
+  contents:
+  - analyze
+  - annotate_evidence
+
+- title: Read the result
+  desc: >
+    Findings as prose, as a table, and as the figures the object already
+    carries.
+  contents:
+  - explain
+  - outcome_name
+  - cmo_plots
+  - as.data.frame.CMOCounterfactual
+  - as.data.frame.CMOResult
+  - as.data.frame.CMOSensitivity
+  - as.data.frame.CMOValidation
+  - as.data.frame.EvidenceGraph
+  - as.data.frame.PreprocessingResult
+  - plot.CMOResult
+  - plot.CMOValidation
+  - plot.PreprocessingResult
+
+- title: Robustness and action
+  desc: >
+    Whether the result survives your preprocessing choices, what changing a
+    variable would imply, and whether a claim replicates.
+  contents:
+  - sensitivity
+  - counterfactual
+  - hypothesis
+  - test_hypothesis
+  - compare_results
+
+- title: Output
+  desc: >
+    A self-contained HTML report, or the graph for Cytoscape and igraph.
+  contents:
+  - report
+  - report.CMOResult
+  - report.CMOValidation
+  - export_graph
+
+- title: Installation
+  desc: >
+    Which evidence generators this machine can actually run.
+  contents:
+  - cmo_setup
+
+- title: Print and summary methods
+  desc: >
+    S3 methods behind print() and summary() for every class the package
+    returns.
+  contents:
+  - print.analysis_assumptions
+  - print.analysis_control
+  - print.BlockDiagnostics
+  - print.cmo_setup
+  - print.CMOComparison
+  - print.CMOCounterfactual
+  - print.CMODagCheck
+  - print.CMOExplanation
+  - print.CMOMultiResult
+  - print.CMOResult
+  - print.CMOSensitivity
+  - print.CMOValidation
+  - print.ConsensusGraph
+  - print.EvidenceEdge
+  - print.EvidenceGraph
+  - print.Hypothesis
+  - print.ModuleGraph
+  - print.MultiOmicsData
+  - print.PreprocessingRecipe
+  - print.PreprocessingResult
+  - print.summary.BlockDiagnostics
+  - print.summary.CMOResult
+  - print.summary.CMOValidation
+  - print.summary.EvidenceEdge
+  - print.summary.EvidenceGraph
+  - print.summary.MultiOmicsData
+  - print.summary.PreprocessingRecipe
+  - print.summary.PreprocessingResult
+  - print.summary.TransformationRecommendation
+  - print.TransformationRecommendation
+  - summary.BlockDiagnostics
+  - summary.CMOResult
+  - summary.CMOValidation
+  - summary.EvidenceEdge
+  - summary.EvidenceGraph
+  - summary.MultiOmicsData
+  - summary.PreprocessingRecipe
+  - summary.PreprocessingResult
+  - summary.TransformationRecommendation
+

@@ -5,6 +5,12 @@
 
 <!-- badges: start -->
 
+[![R-CMD-check](https://github.com/pedro-ortizpalma/CausalMultiOmics/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/pedro-ortizpalma/CausalMultiOmics/actions/workflows/R-CMD-check.yaml)
+[![pkgdown](https://github.com/pedro-ortizpalma/CausalMultiOmics/actions/workflows/pkgdown.yaml/badge.svg)](https://pedro-ortizpalma.github.io/CausalMultiOmics/)
+[![Lifecycle:
+experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
+[![License:
+MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 <!-- badges: end -->
 
 Most analysis packages fit a model and hand it back. This one does not,
@@ -30,11 +36,24 @@ every finding is returned inside a single object.
 
 ## Installation
 
-CausalMultiOmics is not on CRAN yet. Install it from a local checkout:
+CausalMultiOmics is not on CRAN. Install the current version straight
+from GitHub:
 
 ``` r
-# install.packages("devtools")
-devtools::install("path/to/CausalMultiOmics")
+# install.packages("remotes")
+remotes::install_github("pedro-ortizpalma/CausalMultiOmics")
+
+# with the vignette, which takes about a minute longer to build
+remotes::install_github("pedro-ortizpalma/CausalMultiOmics",
+                        build_vignettes = TRUE)
+```
+
+Or take the source tarball attached to the [latest
+release](https://github.com/pedro-ortizpalma/CausalMultiOmics/releases/latest)
+and install it with no network:
+
+``` r
+install.packages("CausalMultiOmics_0.1.1.tar.gz", repos = NULL, type = "source")
 ```
 
 The package itself imports base R only, so installation is trivial
@@ -153,7 +172,7 @@ clean
 #> Removed samples:               0
 #> Removed features:              0
 #> Plots:                         0
-#> Runtime:                       0.07 s
+#> Runtime:                       0.05 s
 ```
 
 ## Building evidence
@@ -186,7 +205,7 @@ results
 #> Causal paths:                  2
 #> Plots:                         0
 #> Tables:                        15
-#> Runtime:                       1.48 s
+#> Runtime:                       1.07 s
 ```
 
 Every relationship carries the identification strategy that would

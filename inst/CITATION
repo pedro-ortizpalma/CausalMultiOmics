@@ -1,0 +1,13 @@
+bibentry(
+  bibtype  = "Manual",
+  title    = "CausalMultiOmics: Interpretable Causal Analysis of Multi-Block Omics Data",
+  author   = person("Pedro", "Ortiz-Palma"),
+  year     = format(Sys.Date(), "%Y"),
+  note     = sprintf("R package version %s", meta$Version),
+  url      = "https://github.com/pedro-ortizpalma/CausalMultiOmics",
+  textVersion = paste0(
+    "Ortiz-Palma P (", format(Sys.Date(), "%Y"), "). CausalMultiOmics: ",
+    "Interpretable Causal Analysis of Multi-Block Omics Data. ",
+    "R package version ", meta$Version, ". ",
+    "https://github.com/pedro-ortizpalma/CausalMultiOmics")
+)

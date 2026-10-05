@@ -16,6 +16,10 @@ knitr::opts_chunk$set(
 # CausalMultiOmics <img src="man/figures/logo.png" align="right" height="130" alt="" />
 
 <!-- badges: start -->
+[![R-CMD-check](https://github.com/pedro-ortizpalma/CausalMultiOmics/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/pedro-ortizpalma/CausalMultiOmics/actions/workflows/R-CMD-check.yaml)
+[![pkgdown](https://github.com/pedro-ortizpalma/CausalMultiOmics/actions/workflows/pkgdown.yaml/badge.svg)](https://pedro-ortizpalma.github.io/CausalMultiOmics/)
+[![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 <!-- badges: end -->
 
 Most analysis packages fit a model and hand it back. This one does not,
@@ -40,11 +44,23 @@ finding is returned inside a single object.
 
 ## Installation
 
-CausalMultiOmics is not on CRAN yet. Install it from a local checkout:
+CausalMultiOmics is not on CRAN. Install the current version straight from
+GitHub:
 
 ``` r
-# install.packages("devtools")
-devtools::install("path/to/CausalMultiOmics")
+# install.packages("remotes")
+remotes::install_github("pedro-ortizpalma/CausalMultiOmics")
+
+# with the vignette, which takes about a minute longer to build
+remotes::install_github("pedro-ortizpalma/CausalMultiOmics",
+                        build_vignettes = TRUE)
+```
+
+Or take the source tarball attached to the
+[latest release](https://github.com/pedro-ortizpalma/CausalMultiOmics/releases/latest) and install it with no network:
+
+``` r
+install.packages("CausalMultiOmics_0.1.1.tar.gz", repos = NULL, type = "source")
 ```
 
 The package itself imports base R only, so installation is trivial anywhere.

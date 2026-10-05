@@ -30,3 +30,6 @@ Meta/
 # folder is a source file and stays tracked; this one is output, and the
 # copy worth keeping lives in docs/ where Pages can serve it.
 dev/analisis-ejemplo.html
+.Rproj.user
+.Rproj.user
+docs/

@@ -9,5 +9,10 @@
 ^docs$
 ^doc$
 ^Meta$
-^doc$
-^Meta$
+^\.github$
+^_pkgdown\.yml$
+^pkgdown$
+^\.gitignore$
+^release$
+^cran-comments\.md$
+^CRAN-SUBMISSION$
