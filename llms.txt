@@ -1,0 +1,614 @@
+# CausalMultiOmics
+
+Most analysis packages fit a model and hand it back. This one does not,
+because “the best model” is a poor answer to a biological question: the
+model that predicts best is usually the one leaning hardest on whatever
+was measured most accurately, which is a fact about the laboratory
+rather than about the disease.
+
+What comes out instead is a scored directed graph in which every arrow
+carries its own evidence — which methods saw it, how large it was, how
+precisely it was measured — and, the part that matters, what would have
+to be true for it to mean what it appears to mean.
+
+Data blocks of any modality — omics, imaging, clinical, environmental,
+wearable devices — are audited, profiled and preprocessed from an
+explicit recipe that can be replayed on a second cohort. Nine evidence
+generators then run against the result and are merged into one graph,
+which is read at the level of a variable, of a module, and of a whole
+block.
+
+Nothing is modified in place.
+[`check_data()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/check_data.md)
+never touches its input; every finding is returned inside a single
+object.
+
+## Installation
+
+CausalMultiOmics is not on CRAN. Install the current version straight
+from GitHub:
+
+``` r
+
+# install.packages("remotes")
+remotes::install_github("pedro-ortizpalma/CausalMultiOmics")
+
+# with the vignette, which takes about a minute longer to build
+remotes::install_github("pedro-ortizpalma/CausalMultiOmics",
+                        build_vignettes = TRUE)
+```
+
+Or take the source tarball attached to the [latest
+release](https://github.com/pedro-ortizpalma/CausalMultiOmics/releases/latest)
+and install it with no network:
+
+``` r
+
+install.packages("CausalMultiOmics_0.1.1.tar.gz", repos = NULL, type = "source")
+```
+
+The package itself imports base R only, so installation is trivial
+anywhere. Every modelling dependency sits in `Suggests`, which has a
+cost worth knowing about: a thin installation runs three of the nine
+generators rather than all nine, and because the evidence score weights
+agreement between methods, it does not return less evidence — it returns
+evidence biased downwards.
+
+[`cmo_setup()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/cmo_setup.md)
+answers that before you analyse anything rather than after:
+
+``` r
+
+cmo_setup()          # what this machine can run, and what it is missing
+cmo_setup(install = TRUE)   # install the rest
+```
+
+## Example
+
+Blocks are supplied as a named list. They do not need to share samples,
+but each one must carry its sample identifiers in its row names — that
+is what links blocks to each other and to the metadata.
+
+``` r
+
+library(CausalMultiOmics)
+
+set.seed(1)
+
+transcriptomics <- data.frame(
+  G1 = rnorm(20),
+  G2 = rnorm(20),
+  G3 = c(rnorm(19), NA),
+  row.names = paste0("S", 1:20)
+)
+
+proteomics <- data.frame(
+  P1 = rpois(18, 5),
+  P2 = rpois(18, 10),
+  row.names = paste0("S", 3:20)
+)
+
+omics <- load_data(
+  assays = list(
+    transcriptomics = transcriptomics,
+    proteomics = proteomics
+  ),
+  metadata = data.frame(
+    sample_id = paste0("S", 1:20),
+    group = rep(c("A", "B"), each = 10),
+    stringsAsFactors = FALSE
+  )
+)
+
+omics
+#> 
+#> MultiOmicsData
+#> ==============
+#> 
+#> Blocks:                2
+#> Samples:               20
+#> Features:              5
+#> Metadata:              Yes
+#> Preprocessing:         0
+#> History:               1
+```
+
+[`check_data()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/check_data.md)
+performs the audit and returns a `CMOValidation` object.
+
+``` r
+
+validation <- check_data(omics)
+
+validation
+#> 
+#> CMOValidation
+#> =============
+#> 
+#> Status:                        VALID
+#> Quality score:                 99.28
+#> Blocks:                        2
+#> Samples:                       20
+#> Features:                      5
+#> Errors:                        0
+#> Warnings:                      1
+#> Recipes:                       2
+```
+
+Each block gets its own diagnostics, transformation benchmark and
+preprocessing recipe:
+
+``` r
+
+validation$diagnostics$proteomics$data_type
+#> [1] "count"
+
+validation$transformations$proteomics$recommended
+#> [1] "vst"
+
+validation$recipes$proteomics$imputation
+#> [1] "none"
+```
+
+[`preprocess()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/preprocess.md)
+executes that plan and records every step, so the pipeline can be
+replayed on a second cohort with
+[`apply_preprocessing()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/apply_preprocessing.md).
+
+``` r
+
+clean <- preprocess(omics, validation, plots = FALSE, quiet = TRUE)
+
+clean
+#> 
+#> PreprocessingResult
+#> ===================
+#> 
+#> Blocks:                        2
+#> Recipes:                       2
+#> Steps executed:                11
+#> Removed samples:               0
+#> Removed features:              0
+#> Plots:                         0
+#> Runtime:                       0.05 s
+```
+
+## Building evidence
+
+[`analyze()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/analyze.md)
+does not fit a model and hand it back. It runs every applicable method,
+collects the relationships each one reports, and merges them into a
+single scored graph.
+
+``` r
+
+results <- analyze(clean, outcome = "group", effort = "fast",
+                   plots = FALSE, quiet = TRUE)
+
+results
+#> 
+#> CMOResult
+#> =========
+#> 
+#> Outcome:                       group
+#> Design:                        cross-sectional
+#> Samples:                       18
+#> Features analysed:             5 of 5
+#> 
+#> Methods run:                   7 of 9
+#> Methods skipped:               2 (2 not applicable to this design)
+#> 
+#> Relationships found:           7
+#> After integration:             7
+#> With temporal precedence:      0
+#> 
+#> Causal paths:                  2
+#> Plots:                         0
+#> Tables:                        15
+#> Runtime:                       1.07 s
+```
+
+Every relationship carries the identification strategy that would
+license reading it causally, and the assumptions that would have to
+hold. An edge identified as `"adjustment"` is an association however
+high it scores.
+
+``` r
+
+results$graph$edges[, c("source", "target", "level_label",
+                        "identification", "evidence_score")]
+#>   source target   level_label identification evidence_score
+#> 1     P1     P2 associational     adjustment          28.23
+#> 2     G1     G3 associational     adjustment          12.95
+#> 3     G2  group associational           none          10.87
+#> 4     P1  group associational           none           5.60
+#> 5     P2  group associational           none           5.39
+#> 6     G3  group associational           none           2.99
+#> 7     G1  group associational           none           2.69
+```
+
+[`explain()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/explain.md)
+gathers everything known about one variable, including what each method
+reported on its own before anything was merged.
+
+``` r
+
+explain(results, "P1")
+```
+
+## From evidence to a claim
+
+A result is a body of evidence. A claim is one thing taken out of it,
+stated at the strength the evidence supports, with what would settle the
+argument attached.
+
+``` r
+
+h <- hypothesis(results)
+
+h
+```
+
+The last section is the one a result never has. It is derived from the
+specific weaknesses of the specific relationship — measure a confounder
+of at least this strength, measure the exposure first, replicate without
+these six people, separate this variable from the four it moves with —
+so a reader can act on it, which they cannot do with “residual
+confounding cannot be excluded”.
+
+The claim carries its own protocol, so it can be taken to a cohort it
+has never seen:
+
+``` r
+
+validation <- apply_preprocessing(new_cohort, clean)
+
+test_hypothesis(h, validation)
+```
+
+Replication is judged on direction and size rather than on a p-value.
+The usual way one is oversold is a direction that holds with an effect a
+fifth as large, which a significance test calls a success.
+
+## What stops a number meaning more than it should
+
+Four checks run over the merged graph. None of them changes an estimate;
+they change what may be claimed about one, and what it is ranked by.
+
+**The quantity each method measured.** Only quantities of the same
+family are pooled. Averaging a log hazard ratio with a correlation
+coefficient produced a headline number in no units at all, and it was
+the number the report led with.
+
+**A causal structure, if you have one.** A DAG is a claim about how the
+world works, not something recoverable from a correlation matrix, so it
+has to come from you. Supplying one turns “we adjusted for age” into a
+verdict:
+
+``` r
+
+structure <- data.frame(
+  from = c("age", "age", "protein", "inflammation"),
+  to   = c("protein", "disease", "inflammation", "disease")
+)
+
+# Adjusting for the mediator removes part of the effect being measured.
+check_dag(structure, "protein", "disease", adjusted = c("age", "inflammation"))
+
+analyze(clean, outcome = "group", assume = analysis_assumptions(dag = structure))
+```
+
+Adjusting for a mediator or a collider makes an estimate worse than
+doing nothing. Both look like diligence, and only a declared structure
+tells them apart.
+
+**How much of it was measured.** `data_quality` is the share of the data
+behind a relationship that was measured rather than reconstructed.
+Imputation fills gaps with plausible numbers, and from that moment
+nothing downstream can tell a measurement from an estimate: a variable
+that arrived a quarter empty reports the same precision as one fully
+observed. Only imputed values count against it, since rows dropped for
+being incomplete cost sample size and that is already in the precision
+score.
+
+**Whether the picture repeats.** `result$consensus` is the graph across
+resamples rather than in the one sample collected. Per-edge stability
+answers “would this relationship come back?” one at a time; it cannot
+answer “would this picture come back?”. It also says what it is not: a
+bootstrap resamples the people who were measured, so it reports how much
+the result depends on which of them ended up in the study, never whether
+a relationship is real.
+
+``` r
+
+results <- analyze(clean, outcome = "group", effort = "standard")
+
+results$consensus
+```
+
+[`counterfactual()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/counterfactual.md)
+states the findings in the units the variable was measured in. Nothing
+is included unless you name it as something that could plausibly be
+changed — a contrast for a genotype is arithmetic without meaning.
+
+``` r
+
+counterfactual(results, modifiable = "proteomics")
+```
+
+Prior biological knowledge can be attached with
+[`annotate_evidence()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/annotate_evidence.md).
+It is reported beside the score and never folded into it, so a
+relationship nobody has published yet is not penalised for being new. It
+takes a local export rather than a live query, which keeps the analysis
+offline, deterministic and independent of a database version the result
+could not record.
+
+``` r
+
+known <- data.frame(source = "P1", target = "M1",
+                    support = 0.9, database = "local STRING export")
+
+annotate_evidence(results, known)
+```
+
+## Reading the results
+
+[`report()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/report.md)
+turns a validation into something readable. The console format leads
+with the verdict and flags only what needs attention:
+
+``` r
+
+report(validation, format = "console")
+```
+
+The default format writes a self-contained HTML document — styles,
+scripts and plots are all inlined, so it opens with no network access
+and no CDN dependency:
+
+``` r
+
+report(validation, file = "validation_report.html")
+```
+
+## Getting the results out
+
+Every object answers
+[`as.data.frame()`](https://rdrr.io/r/base/as.data.frame.html), so
+nothing here has to be taken apart by hand to reach a plot or a
+pipeline.
+
+``` r
+
+as.data.frame(results)            # one row per relationship
+as.data.frame(results, all = TRUE) # every column, not just the readable ones
+as.data.frame(validation)         # one row per block
+
+cmo_plots(results)                # what figures exist
+plot(results, "circos")           # draw one
+
+export_graph(results, "graph.graphml")   # Cytoscape, Gephi
+```
+
+[`summary()`](https://rdrr.io/r/base/summary.html) returns the summary
+rather than printing it, so it can be stored, looped over, or printed
+twice without surprises.
+
+## Development
+
+``` r
+
+devtools::document()
+devtools::test()
+devtools::check()
+```
+
+`tests/manual/` holds two standalone walkthroughs that drive the package
+the way a user would and print everything they would see at the console.
+`walkthrough_simple.R` runs on simulated data; `walkthrough_complex.R`
+runs on the NHANES 1999-2006 exposome release, which is not
+redistributed here — `tests/manual/test_data/SOURCE.md` says where to
+get it. Neither is part of the built package.
+
+# Package index
+
+## Load and audit
+
+Bring blocks in, measure them, and get a preprocessing recipe. Nothing
+is modified.
+
+- [`load_data()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/load_data.md)
+  : Load Multi-Block Data
+- [`check_data()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/check_data.md)
+  : Validate a MultiOmicsData object
+- [`simulate_data()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/simulate_data.md)
+  : Generate a multi-block study with a known answer
+
+## Preprocess
+
+Execute the recipe, recording every step so it can be replayed on a
+second cohort.
+
+- [`preprocess()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/preprocess.md)
+  : Execute a preprocessing plan
+- [`apply_preprocessing()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/apply_preprocessing.md)
+  : Replay a fitted pipeline on new data
+
+## State the question
+
+What you believe and how it should be computed, written down before
+anything is estimated.
+
+- [`analysis_assumptions()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/analysis_assumptions.md)
+  : What you are claiming, as opposed to what you measured
+- [`analysis_control()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/analysis_control.md)
+  : How much work to do, and on what
+- [`check_dag()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/check_dag.md)
+  : Check what a causal structure implies about an adjustment
+
+## Analyse
+
+Run the evidence generators and merge them into one scored graph.
+
+- [`analyze()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/analyze.md)
+  : Build quantified causal evidence from preprocessed multi-block data
+- [`annotate_evidence()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/annotate_evidence.md)
+  : Attach external biological support to an evidence graph
+
+## Read the result
+
+Findings as prose, as a table, and as the figures the object already
+carries.
+
+- [`explain()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/explain.md)
+  : Explain why a variable ended up where it did
+- [`outcome_name()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/outcome_name.md)
+  : The name of the outcome an analysis was run on
+- [`cmo_plots()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/cmo_plots.md)
+  : Which figures an object carries
+- [`as.data.frame(`*`<CMOCounterfactual>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/as.data.frame.CMOCounterfactual.md)
+  : The counterfactual contrasts, as a data frame
+- [`as.data.frame(`*`<CMOResult>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/as.data.frame.CMOResult.md)
+  : The relationships an analysis found, as a data frame
+- [`as.data.frame(`*`<CMOSensitivity>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/as.data.frame.CMOSensitivity.md)
+  : The analysis variants a sensitivity run fitted, as a data frame
+- [`as.data.frame(`*`<CMOValidation>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/as.data.frame.CMOValidation.md)
+  : The block-level audit, as a data frame
+- [`as.data.frame(`*`<EvidenceGraph>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/as.data.frame.EvidenceGraph.md)
+  : The edges of an evidence graph, as a data frame
+- [`as.data.frame(`*`<PreprocessingResult>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/as.data.frame.PreprocessingResult.md)
+  : What each preprocessing stage did, as a data frame
+- [`plot(`*`<CMOResult>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/plot.CMOResult.md)
+  : Draw a figure recorded during an analysis
+- [`plot(`*`<CMOValidation>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/plot.CMOValidation.md)
+  : Draw a figure recorded during the audit
+- [`plot(`*`<PreprocessingResult>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/plot.PreprocessingResult.md)
+  : Draw a figure recorded during preprocessing
+
+## Robustness and action
+
+Whether the result survives your preprocessing choices, what changing a
+variable would imply, and whether a claim replicates.
+
+- [`sensitivity()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/sensitivity.md)
+  : Re-run one relationship under every defensible preprocessing choice
+- [`counterfactual()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/counterfactual.md)
+  : What the results imply about changing a variable
+- [`hypothesis()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/hypothesis.md)
+  : State one relationship as a claim that could be wrong
+- [`test_hypothesis()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/test_hypothesis.md)
+  : Take a stated claim to a different cohort
+- [`compare_results()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/compare_results.md)
+  : Compare two analyses of the same question
+
+## Output
+
+A self-contained HTML report, or the graph for Cytoscape and igraph.
+
+- [`report()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/report.md)
+  : Print a readable validation report
+- [`report(`*`<CMOResult>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/report.CMOResult.md)
+  : Readable report for an analysis result
+- [`report(`*`<CMOValidation>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/report.CMOValidation.md)
+  : Readable report for a CMOValidation object
+- [`export_graph()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/export_graph.md)
+  : Write the evidence graph in a format another tool can open
+
+## Installation
+
+Which evidence generators this machine can actually run.
+
+- [`cmo_setup()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/cmo_setup.md)
+  : What this installation can run, and what it is missing
+
+## Print and summary methods
+
+S3 methods behind print() and summary() for every class the package
+returns.
+
+- [`print(`*`<analysis_assumptions>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.analysis_assumptions.md)
+  : Print what is being assumed
+- [`print(`*`<analysis_control>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.analysis_control.md)
+  : Print how much work will be done
+- [`print(`*`<BlockDiagnostics>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.BlockDiagnostics.md)
+  : Print a compact overview of a BlockDiagnostics object
+- [`print(`*`<cmo_setup>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.cmo_setup.md)
+  : Print what this installation can run
+- [`print(`*`<CMOComparison>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.CMOComparison.md)
+  : Print a comparison of two analyses
+- [`print(`*`<CMOCounterfactual>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.CMOCounterfactual.md)
+  : Print counterfactual contrasts as readable statements
+- [`print(`*`<CMODagCheck>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.CMODagCheck.md)
+  : Print the verdict on an adjustment
+- [`print(`*`<CMOExplanation>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.CMOExplanation.md)
+  : Print a readable account of one variable
+- [`print(`*`<CMOMultiResult>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.CMOMultiResult.md)
+  : Print an analysis of several outcomes
+- [`print(`*`<CMOResult>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.CMOResult.md)
+  : Print a compact overview of a CMOResult object
+- [`print(`*`<CMOSensitivity>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.CMOSensitivity.md)
+  : Print how much of a finding is the analyst
+- [`print(`*`<CMOValidation>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.CMOValidation.md)
+  : Print a compact overview of a CMOValidation object
+- [`print(`*`<ConsensusGraph>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.ConsensusGraph.md)
+  : Print what the resampling says about the shape of the graph
+- [`print(`*`<EvidenceEdge>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.EvidenceEdge.md)
+  : Print a compact overview of a EvidenceEdge object
+- [`print(`*`<EvidenceGraph>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.EvidenceGraph.md)
+  : Print a compact overview of a EvidenceGraph object
+- [`print(`*`<Hypothesis>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.Hypothesis.md)
+  : Print a stated claim, its case, and what would settle it
+- [`print(`*`<ModuleGraph>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.ModuleGraph.md)
+  : Print the groups of features that move together
+- [`print(`*`<MultiOmicsData>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.MultiOmicsData.md)
+  : Print a compact overview of a MultiOmicsData object
+- [`print(`*`<PreprocessingRecipe>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.PreprocessingRecipe.md)
+  : Print a compact overview of a PreprocessingRecipe object
+- [`print(`*`<PreprocessingResult>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.PreprocessingResult.md)
+  : Print a compact overview of a PreprocessingResult object
+- [`print(`*`<summary.BlockDiagnostics>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.summary.BlockDiagnostics.md)
+  : Print the summary of a BlockDiagnostics object
+- [`print(`*`<summary.CMOResult>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.summary.CMOResult.md)
+  : Print the summary of a CMOResult object
+- [`print(`*`<summary.CMOValidation>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.summary.CMOValidation.md)
+  : Print the summary of a CMOValidation object
+- [`print(`*`<summary.EvidenceEdge>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.summary.EvidenceEdge.md)
+  : Print the summary of a EvidenceEdge object
+- [`print(`*`<summary.EvidenceGraph>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.summary.EvidenceGraph.md)
+  : Print the summary of a EvidenceGraph object
+- [`print(`*`<summary.MultiOmicsData>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.summary.MultiOmicsData.md)
+  : Print the summary of a MultiOmicsData object
+- [`print(`*`<summary.PreprocessingRecipe>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.summary.PreprocessingRecipe.md)
+  : Print the summary of a PreprocessingRecipe object
+- [`print(`*`<summary.PreprocessingResult>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.summary.PreprocessingResult.md)
+  : Print the summary of a PreprocessingResult object
+- [`print(`*`<summary.TransformationRecommendation>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.summary.TransformationRecommendation.md)
+  : Print the summary of a TransformationRecommendation object
+- [`print(`*`<TransformationRecommendation>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/print.TransformationRecommendation.md)
+  : Print a compact overview of a TransformationRecommendation object
+- [`summary(`*`<BlockDiagnostics>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/summary.BlockDiagnostics.md)
+  : Assemble the full summary of a BlockDiagnostics object
+- [`summary(`*`<CMOResult>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/summary.CMOResult.md)
+  : Assemble the full summary of a CMOResult object
+- [`summary(`*`<CMOValidation>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/summary.CMOValidation.md)
+  : Assemble the full summary of a CMOValidation object
+- [`summary(`*`<EvidenceEdge>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/summary.EvidenceEdge.md)
+  : Assemble the full summary of a EvidenceEdge object
+- [`summary(`*`<EvidenceGraph>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/summary.EvidenceGraph.md)
+  : Assemble the full summary of a EvidenceGraph object
+- [`summary(`*`<MultiOmicsData>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/summary.MultiOmicsData.md)
+  : Assemble the full summary of a MultiOmicsData object
+- [`summary(`*`<PreprocessingRecipe>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/summary.PreprocessingRecipe.md)
+  : Assemble the full summary of a PreprocessingRecipe object
+- [`summary(`*`<PreprocessingResult>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/summary.PreprocessingResult.md)
+  : Assemble the full summary of a PreprocessingResult object
+- [`summary(`*`<TransformationRecommendation>`*`)`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/summary.TransformationRecommendation.md)
+  : Assemble the full summary of a TransformationRecommendation object
+
+# Articles
+
+### All vignettes
+
+- [From blocks of data to a claim you could be wrong
+  about](https://pedro-ortizpalma.github.io/CausalMultiOmics/articles/causalmultiomics.md):

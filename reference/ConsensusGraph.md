@@ -1,0 +1,27 @@
+# Create a ConsensusGraph object
+
+What the graph looks like across resamples rather than in the one sample
+that happened to be collected.
+
+## Usage
+
+``` r
+ConsensusGraph()
+```
+
+## Value
+
+A ConsensusGraph object.
+
+## Details
+
+Per-edge stability answers "would this relationship come back?" one
+relationship at a time. It cannot answer "would this picture come
+back?", and those are different questions: a graph whose edges are each
+recovered six times in ten is a stable structure if it is the same six
+edges every time and no structure at all if it is a different six. A
+reader shown a single drawing has no way to tell which they are looking
+at.
+
+Everything here is read off the resampling that already runs, so it
+costs no additional model fits.
