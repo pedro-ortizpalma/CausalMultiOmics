@@ -19,6 +19,28 @@
   package whose purpose is that nothing disappears unrecorded cannot
   lose a hundred variables in silence.
 
+### A report with no figures in it, on any Mac without XQuartz
+
+- [`report()`](https://pedro-ortizpalma.github.io/CausalMultiOmics/reference/report.md)
+  embedded its figures by rasterising each recorded plot through
+  `grDevices::png(type = "cairo")`. That type is correct on Linux and on
+  Windows and wrong on macOS: R.framework ships cairo and X11 as
+  loadable modules that need XQuartz, so on a stock Mac neither loads,
+  the device never opened, and every figure was dropped from the report
+  without a word. `capabilities("cairo")` is no help, because it reports
+  whether cairo was compiled in rather than whether it can be loaded,
+  and on the machines that fail it says TRUE.
+- The device type is now probed once per session by opening a device and
+  seeing what happens, with the candidates ordered per platform —
+  [`png()`](https://rdrr.io/r/grDevices/png.html) validates the name
+  with `match.arg`, so an off-platform one is an error rather than a
+  decline. When none of them works the report still builds, but it says
+  once why it has no figures in it and where to get a device.
+- `.safe_record()` registered its `on.exit(dev.off())` before confirming
+  the device had opened, so a constructor that failed would have closed
+  a device the function never opened; it now closes its own device by
+  number.
+
 ### How much of the engine actually ran
 
 - [`print()`](https://rdrr.io/r/base/print.html) on a `CMOResult` said

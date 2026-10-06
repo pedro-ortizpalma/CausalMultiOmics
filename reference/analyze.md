@@ -160,7 +160,7 @@ fit
 #> Causal paths:                  0
 #> Plots:                         0
 #> Tables:                        15
-#> Runtime:                       0.88 s
+#> Runtime:                       0.92 s
 
 # The findings as a table, ordered by evidence.
 head(as.data.frame(fit))
@@ -207,5 +207,5 @@ analyze(ready, outcome = "y", effort = "fast", plots = FALSE, quiet = TRUE,
 #> Causal paths:                  0
 #> Plots:                         0
 #> Tables:                        15
-#> Runtime:                       0.09 s
+#> Runtime:                       0.10 s
 ```

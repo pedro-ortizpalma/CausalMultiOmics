@@ -33,7 +33,7 @@
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.png" class="logo" alt=""><h1>Changelog</h1>
-      <small>Source: <a href="https://github.com/pedro-ortizpalma/CausalMultiOmics/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
+      <small>Source: <a href="https://github.com/pedro-ortizpalma/CausalMultiOmics/blob/v0.1.1/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
     <div class="section level2">
@@ -43,6 +43,14 @@
 <ul><li>
 <code><a href="../reference/preprocess.html">preprocess()</a></code> under-reported what it dropped. The step recorder derived the removed names from <code>model$columns</code>, but the feature-selection and filter models record the columns they <em>keep</em>, under <code>keep</code>. Reading a field that was never there returned <code>character(0)</code>, so a run that took a block from 600 features to 500 reported <code>Removed features: 0</code> in <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> and <code>None</code> in <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>. Only the <code>Pipeline</code> table showed the change.</li>
 <li>The recorder now compares the column names before and after each stage. That is independent of the fitted model, so it is also correct for any stage added later. This matters beyond a wrong number: a package whose purpose is that nothing disappears unrecorded cannot lose a hundred variables in silence.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="a-report-with-no-figures-in-it-on-any-mac-without-xquartz-0-1-1">A report with no figures in it, on any Mac without XQuartz<a class="anchor" aria-label="anchor" href="#a-report-with-no-figures-in-it-on-any-mac-without-xquartz-0-1-1"></a></h3>
+<ul><li>
+<code><a href="../reference/report.html">report()</a></code> embedded its figures by rasterising each recorded plot through <code>grDevices::png(type = "cairo")</code>. That type is correct on Linux and on Windows and wrong on macOS: R.framework ships cairo and X11 as loadable modules that need XQuartz, so on a stock Mac neither loads, the device never opened, and every figure was dropped from the report without a word. <code>capabilities("cairo")</code> is no help, because it reports whether cairo was compiled in rather than whether it can be loaded, and on the machines that fail it says TRUE.</li>
+<li>The device type is now probed once per session by opening a device and seeing what happens, with the candidates ordered per platform — <code><a href="https://rdrr.io/r/grDevices/png.html" class="external-link">png()</a></code> validates the name with <code>match.arg</code>, so an off-platform one is an error rather than a decline. When none of them works the report still builds, but it says once why it has no figures in it and where to get a device.</li>
+<li>
+<code>.safe_record()</code> registered its <code>on.exit(dev.off())</code> before confirming the device had opened, so a constructor that failed would have closed a device the function never opened; it now closes its own device by number.</li>
 </ul></div>
 <div class="section level3">
 <h3 id="how-much-of-the-engine-actually-ran-0-1-1">How much of the engine actually ran<a class="anchor" aria-label="anchor" href="#how-much-of-the-engine-actually-ran-0-1-1"></a></h3>

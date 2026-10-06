@@ -7,7 +7,7 @@
 ## Citation
 
 Source:
-[`inst/CITATION`](https://github.com/pedro-ortizpalma/CausalMultiOmics/blob/main/inst/CITATION)
+[`inst/CITATION`](https://github.com/pedro-ortizpalma/CausalMultiOmics/blob/v0.1.1/inst/CITATION)
 
 Ortiz-Palma P (2026). CausalMultiOmics: Interpretable Causal Analysis of
 Multi-Block Omics Data. R package version 0.1.1.

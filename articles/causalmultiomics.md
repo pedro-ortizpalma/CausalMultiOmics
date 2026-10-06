@@ -152,7 +152,7 @@ results
 #> Causal paths:                  1
 #> Plots:                         0
 #> Tables:                        15
-#> Runtime:                       1.92 s
+#> Runtime:                       2.01 s
 ```
 
 The planted driver should be at the top, and the eight noise proteins

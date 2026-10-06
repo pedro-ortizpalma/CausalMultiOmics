@@ -38,8 +38,9 @@ audit <- check_data(data)
 file <- tempfile(fileext = ".html")
 report(audit, file = file)
 #> Building HTML report...
-#> Report saved to: /tmp/RtmpyoO9oA/file1bcf7686c1bb.html
-#> Size: 476.0 KB
+#> Warning: No usable PNG device on this machine, so the report will have no figures in it. On macOS, installing XQuartz (xquartz.org) gives R a device it can write PNGs with.
+#> Report saved to: /tmp/Rtmp7CAPtG/file1ad772de9f1f.html
+#> Size: 16.0 KB
 file.exists(file)
 #> [1] TRUE
 unlink(file)

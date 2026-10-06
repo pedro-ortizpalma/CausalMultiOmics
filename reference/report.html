@@ -33,7 +33,7 @@
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.png" class="logo" alt=""><h1>Print a readable validation report</h1>
-      <small class="dont-index">Source: <a href="https://github.com/pedro-ortizpalma/CausalMultiOmics/blob/main/R/methods.R" class="external-link"><code>R/methods.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/pedro-ortizpalma/CausalMultiOmics/blob/v0.1.1/R/methods.R" class="external-link"><code>R/methods.R</code></a></small>
       <div class="d-none name"><code>report.Rd</code></div>
     </div>
 
@@ -75,8 +75,9 @@
 <span class="r-in"><span><span class="va">file</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span>fileext <span class="op">=</span> <span class="st">".html"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu">report</span><span class="op">(</span><span class="va">audit</span>, file <span class="op">=</span> <span class="va">file</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Building HTML report...</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Report saved to: /tmp/RtmpyoO9oA/file1bcf7686c1bb.html</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Size: 476.0 KB</span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>No usable PNG device on this machine, so the report will have no figures in it. On macOS, installing XQuartz (xquartz.org) gives R a device it can write PNGs with.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Report saved to: /tmp/Rtmp7CAPtG/file1ad772de9f1f.html</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Size: 16.0 KB</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/files.html" class="external-link">file.exists</a></span><span class="op">(</span><span class="va">file</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] TRUE</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/unlink.html" class="external-link">unlink</a></span><span class="op">(</span><span class="va">file</span><span class="op">)</span></span></span>
