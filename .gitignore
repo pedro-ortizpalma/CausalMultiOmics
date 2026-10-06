@@ -33,3 +33,7 @@ dev/analisis-ejemplo.html
 .Rproj.user
 .Rproj.user
 docs/
+
+
+# testthat >= 3.3 writes a reproduction script here when a test fails.
+tests/testthat/_problems/

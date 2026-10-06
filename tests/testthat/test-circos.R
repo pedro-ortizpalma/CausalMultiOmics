@@ -52,6 +52,11 @@ test_that("analyze() produces both circos figures", {
 
 test_that("the circos survives being rasterised", {
 
+  # A machine with no usable PNG device cannot rasterise anything: on macOS
+  # without XQuartz neither cairo nor X11 will load. That is a fact about the
+  # machine, not about the circos, so the claim is untestable rather than false.
+  skip_if(is.na(.png_device_type()), "no usable PNG device on this machine")
+
   res <- analyze(cmo_layered(), "HDL", effort = "fast", plots = TRUE, quiet = TRUE, 
     control = analysis_control(max_features = 40))
 

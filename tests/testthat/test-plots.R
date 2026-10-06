@@ -105,3 +105,42 @@ test_that("an object without figures says so instead of erroring obscurely", {
 
 })
 
+
+
+test_that("the PNG device type is probed rather than assumed", {
+
+  type <- .png_device_type()
+
+  # Either a type that works on this machine, or an honest NA. Never a guess:
+  # the previous code assumed "cairo", which is unavailable on a Mac without
+  # XQuartz and on any R built without it, and the report came out silently
+  # short of every figure.
+  expect_true(is.na(type) ||
+              type %in% c("quartz", "cairo", "Xlib", "windows", "cairo-png"))
+
+  # The probe must leave the device stack exactly as it found it. A device left
+  # open sends every later plot to the wrong place, and R CMD check fails on a
+  # device it did not open itself.
+  before <- length(grDevices::dev.list())
+  invisible(.png_device_type())
+  expect_equal(length(grDevices::dev.list()), before)
+
+  # And whatever it names has to actually open.
+  if (!is.na(type)) {
+
+    file <- tempfile(fileext = ".png")
+    # Big enough for the default margins. A tiny device makes plot.new() fail
+    # with "figure margins too large", which would be a failure of the test
+    # rather than of the device it is supposed to be checking.
+    grDevices::png(file, width = 400, height = 300, type = type)
+    graphics::plot(1)
+    grDevices::dev.off()
+
+    expect_true(file.exists(file))
+    expect_gt(file.size(file), 0)
+
+    unlink(file)
+
+  }
+
+})

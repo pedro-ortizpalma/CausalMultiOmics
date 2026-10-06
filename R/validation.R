@@ -2103,8 +2103,24 @@
 #' @noRd
 .safe_record <- function(plot_fn) {
 
-  grDevices::pdf(file = NULL)
-  on.exit(grDevices::dev.off(), add = TRUE)
+  # Opening the device can itself fail on an R whose graphics libraries are
+  # broken: every device constructor resolves a symbol font, and on macOS
+  # without XQuartz that lookup reaches cairo. Registering the on.exit only
+  # after the device is open keeps a failure here from closing a device this
+  # function never opened, and closing by number keeps it from closing someone
+  # else's device if plot_fn leaves a different one current.
+
+  opened <- tryCatch({ grDevices::pdf(file = NULL); TRUE },
+                     error = function(e) FALSE)
+
+  if (!isTRUE(opened)) return(NULL)
+
+  device <- grDevices::dev.cur()
+
+  on.exit({
+    if (device %in% grDevices::dev.list())
+      try(grDevices::dev.off(device), silent = TRUE)
+  }, add = TRUE)
 
   # Off-screen devices do not keep a display list by default, so recordPlot()
   # would return an empty recording that replays as a blank canvas.

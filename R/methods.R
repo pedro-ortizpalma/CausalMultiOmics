@@ -3304,6 +3304,77 @@ report.CMOValidation <- function(object,
 # Plot rasterization
 # -----------------------------------------------------------------------------
 
+#' The PNG device type that actually works on this machine
+#'
+#' `type = "cairo"` is the right choice on Linux and on Windows and the wrong
+#' one on macOS. R.framework ships cairo and X11 as loadable modules that need
+#' XQuartz, so a machine without it — a stock Mac, or GitHub's macOS runner —
+#' can load neither, the device never opens, and the report comes out with no
+#' figures in it.
+#'
+#' `capabilities("cairo")` cannot be used to decide: it answers whether cairo
+#' was compiled in, not whether its library can be loaded, and on the machines
+#' that fail it answers TRUE. The only honest test is to open a device and look
+#' at what happened. The answer cannot change within a session, so it is probed
+#' once and remembered.
+#'
+#' @return One of "quartz", "cairo" or "Xlib", or `NA_character_` when none
+#'   of them opens a device.
+#' @keywords internal
+#' @noRd
+.png_device_type <- local({
+
+  cached <- NULL
+
+  function() {
+
+    if (!is.null(cached)) return(cached)
+
+    # png() validates `type` with match.arg, and the permitted values differ
+    # by platform: Windows knows nothing of "Xlib" and unix nothing of
+    # "windows", so an off-platform name raises an error rather than simply
+    # declining. On macOS quartz is native and needs no X11, so it leads there.
+    candidates <- switch(
+      Sys.info()[["sysname"]],
+      Windows = c("cairo", "windows"),
+      Darwin  = c("quartz", "cairo", "Xlib"),
+      c("cairo", "Xlib"))
+
+    for (type in candidates) {
+
+      probe <- tempfile(fileext = ".png")
+      before <- grDevices::dev.cur()
+
+      opened <- tryCatch({
+        suppressWarnings(grDevices::png(filename = probe, width = 8L,
+                                       height = 8L, type = type))
+        TRUE
+      }, error = function(e) FALSE)
+
+      if (isTRUE(opened) && !identical(grDevices::dev.cur(), before)) {
+
+        try(grDevices::dev.off(), silent = TRUE)
+
+        if (file.exists(probe) && file.size(probe) > 0) {
+          unlink(probe)
+          cached <<- type
+          return(type)
+        }
+
+      }
+
+      unlink(probe)
+
+    }
+
+    cached <<- NA_character_
+
+    NA_character_
+
+  }
+
+})
+
 #' Replay a recorded plot into an inline PNG data URI
 #' @keywords internal
 .html_plot_uri <- function(recorded, width = 900, height = 560, res = 110) {
@@ -3311,6 +3382,27 @@ report.CMOValidation <- function(object,
   if (is.null(recorded) || !inherits(recorded, "recordedplot")) return(NULL)
 
   if (length(recorded[[1]]) == 0) return(NULL)
+
+  type <- .png_device_type()
+
+  # Say it once per session rather than returning a report with silently
+  # missing figures: in a package whose premise is that nothing disappears
+  # unrecorded, an absent plot has to announce itself.
+  if (is.na(type)) {
+
+    if (!isTRUE(getOption("CausalMultiOmics.png_warned"))) {
+
+      warning("No usable PNG device on this machine, so the report will have ",
+              "no figures in it. On macOS, installing XQuartz (xquartz.org) ",
+              "gives R a device it can write PNGs with.", call. = FALSE)
+
+      options(CausalMultiOmics.png_warned = TRUE)
+
+    }
+
+    return(NULL)
+
+  }
 
   file <- tempfile(fileext = ".png")
 
@@ -3321,7 +3413,7 @@ report.CMOValidation <- function(object,
   ok <- tryCatch({
 
     grDevices::png(filename = file, width = width, height = height,
-                   res = res, type = "cairo")
+                   res = res, type = type)
 
     device_open <- TRUE
 

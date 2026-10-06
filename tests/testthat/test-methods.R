@@ -102,7 +102,11 @@ test_that("report() writes a self-contained HTML document", {
 
   expect_match(txt, "<!DOCTYPE html>", fixed = TRUE)
   expect_match(txt, "</html>", fixed = TRUE)
-  expect_match(txt, "data:image/png;base64,", fixed = TRUE)
+  # Everything above holds on any machine. The embedded figures need a working
+  # PNG device, which a Mac without XQuartz does not have.
+  if (!is.na(.png_device_type())) {
+    expect_match(txt, "data:image/png;base64,", fixed = TRUE)
+  }
 
   # No CDN, no remote fonts: the file has to open with no network at all.
   expect_false(grepl("(src|href)=[\"']https?://", txt))
